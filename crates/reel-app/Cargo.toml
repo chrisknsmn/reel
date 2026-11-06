@@ -8,13 +8,31 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# Adds a scripted test of the running app, which never ships. See src/self_test.rs.
+self-test = ["dep:png"]
+
 [dependencies]
 # Rust/UI's Button renders a router Link when given an href.
 dioxus = { workspace = true, features = ["desktop", "router"] }
 icons.workspace = true
+reel-core.workspace = true
 serde_json.workspace = true
 strum.workspace = true
 tw_merge.workspace = true
+tokio = { version = "1", features = ["time"] }
+png = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+pollster.workspace = true
+reel-media.workspace = true
+reel-motion.workspace = true
+reel-render.workspace = true
+rfd = "0.17"
+wgpu.workspace = true
 
 [dev-dependencies]
 dioxus-ssr.workspace = true

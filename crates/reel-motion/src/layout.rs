@@ -37,9 +37,19 @@ pub fn compute(stage: (f64, f64), padding: &Padding, crop: &Crop, video: (f64, f
     let (width, height) = stage;
     let advanced = !padding.linked;
     let clamp_percent = |value: f64, max: f64| value.clamp(0.0, max);
-    let vertical_max = if advanced { ADVANCED_VERTICAL_MAX } else { 100.0 };
-    let (left, right) = (clamp_percent(padding.left, 100.0), clamp_percent(padding.right, 100.0));
-    let (top, bottom) = (clamp_percent(padding.top, vertical_max), clamp_percent(padding.bottom, vertical_max));
+    let vertical_max = if advanced {
+        ADVANCED_VERTICAL_MAX
+    } else {
+        100.0
+    };
+    let (left, right) = (
+        clamp_percent(padding.left, 100.0),
+        clamp_percent(padding.right, 100.0),
+    );
+    let (top, bottom) = (
+        clamp_percent(padding.top, vertical_max),
+        clamp_percent(padding.bottom, vertical_max),
+    );
 
     let left_fraction = left / 100.0 * PADDING_SCALE;
     let right_fraction = right / 100.0 * PADDING_SCALE;
@@ -102,9 +112,21 @@ pub struct ShadowLayer {
 pub fn shadow_layers(intensity: f64) -> [ShadowLayer; 3] {
     let i = intensity.clamp(0.0, 1.0);
     [
-        ShadowLayer { offset_y: 12.0 * i, blur: 48.0 * i, alpha: 0.7 * i },
-        ShadowLayer { offset_y: 4.0 * i, blur: 16.0 * i, alpha: 0.5 * i },
-        ShadowLayer { offset_y: 2.0 * i, blur: 8.0 * i, alpha: 0.3 * i },
+        ShadowLayer {
+            offset_y: 12.0 * i,
+            blur: 48.0 * i,
+            alpha: 0.7 * i,
+        },
+        ShadowLayer {
+            offset_y: 4.0 * i,
+            blur: 16.0 * i,
+            alpha: 0.5 * i,
+        },
+        ShadowLayer {
+            offset_y: 2.0 * i,
+            blur: 8.0 * i,
+            alpha: 0.3 * i,
+        },
     ]
 }
 
@@ -133,12 +155,22 @@ pub fn stage_size(aspect: &str, video: (f64, f64), crop: &Crop) -> (u32, u32) {
 mod tests {
     use super::*;
 
-    const FULL: Crop = Crop { x: 0.0, y: 0.0, width: 1.0, height: 1.0 };
+    const FULL: Crop = Crop {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+    };
 
     #[test]
     fn default_padding_takes_four_percent_per_side() {
         // §31: padFrac = pct / 100 × 0.2, so the default of 20 gives 4% per side.
-        let layout = compute((1920.0, 1080.0), &Padding::uniform(20.0), &FULL, (1920.0, 1080.0));
+        let layout = compute(
+            (1920.0, 1080.0),
+            &Padding::uniform(20.0),
+            &FULL,
+            (1920.0, 1080.0),
+        );
         assert!((layout.frame.width - 1920.0 * 0.92).abs() < 1e-6);
         assert!((layout.frame.x - 1920.0 * 0.04).abs() < 1e-6);
         assert!((layout.frame.y - 1080.0 * 0.04).abs() < 1e-6);
@@ -146,13 +178,31 @@ mod tests {
 
     #[test]
     fn no_padding_fills_the_stage() {
-        let layout = compute((1920.0, 1080.0), &Padding::uniform(0.0), &FULL, (1920.0, 1080.0));
-        assert_eq!(layout.frame, Rect { x: 0.0, y: 0.0, width: 1920.0, height: 1080.0 });
+        let layout = compute(
+            (1920.0, 1080.0),
+            &Padding::uniform(0.0),
+            &FULL,
+            (1920.0, 1080.0),
+        );
+        assert_eq!(
+            layout.frame,
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 1920.0,
+                height: 1080.0
+            }
+        );
     }
 
     #[test]
     fn a_video_fits_without_changing_shape() {
-        let layout = compute((1920.0, 1080.0), &Padding::uniform(0.0), &FULL, (1000.0, 1000.0));
+        let layout = compute(
+            (1920.0, 1080.0),
+            &Padding::uniform(0.0),
+            &FULL,
+            (1000.0, 1000.0),
+        );
         assert_eq!(layout.frame.height, 1080.0);
         assert_eq!(layout.frame.width, 1080.0);
         assert_eq!(layout.frame.center(), (960.0, 540.0));
@@ -160,8 +210,18 @@ mod tests {
 
     #[test]
     fn a_crop_shows_only_part_of_the_video_at_full_scale() {
-        let crop = Crop { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
-        let layout = compute((1920.0, 1080.0), &Padding::uniform(0.0), &crop, (1920.0, 1080.0));
+        let crop = Crop {
+            x: 0.25,
+            y: 0.25,
+            width: 0.5,
+            height: 0.5,
+        };
+        let layout = compute(
+            (1920.0, 1080.0),
+            &Padding::uniform(0.0),
+            &crop,
+            (1920.0, 1080.0),
+        );
         assert_eq!(layout.frame.width, 1920.0);
         assert_eq!(layout.video.width, 3840.0);
         assert_eq!(layout.video.x, -960.0);
@@ -170,7 +230,13 @@ mod tests {
 
     #[test]
     fn unlinked_vertical_padding_slides_the_frame() {
-        let padding = |top, bottom| Padding { top, bottom, left: 20.0, right: 20.0, linked: false };
+        let padding = |top, bottom| Padding {
+            top,
+            bottom,
+            left: 20.0,
+            right: 20.0,
+            linked: false,
+        };
         let stage = (1920.0, 1080.0);
         let centered = compute(stage, &padding(0.0, 0.0), &FULL, (1920.0, 1080.0));
         let low = compute(stage, &padding(250.0, 0.0), &FULL, (1920.0, 1080.0));
@@ -191,8 +257,22 @@ mod tests {
     #[test]
     fn the_shadow_matches_the_documented_profile() {
         let layers = shadow_layers(1.0);
-        assert_eq!(layers[0], ShadowLayer { offset_y: 12.0, blur: 48.0, alpha: 0.7 });
-        assert_eq!(layers[2], ShadowLayer { offset_y: 2.0, blur: 8.0, alpha: 0.3 });
+        assert_eq!(
+            layers[0],
+            ShadowLayer {
+                offset_y: 12.0,
+                blur: 48.0,
+                alpha: 0.7
+            }
+        );
+        assert_eq!(
+            layers[2],
+            ShadowLayer {
+                offset_y: 2.0,
+                blur: 8.0,
+                alpha: 0.3
+            }
+        );
         assert_eq!(shadow_layers(0.0)[0].alpha, 0.0);
     }
 

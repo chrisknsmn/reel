@@ -6,7 +6,9 @@ pub type Rgba = [f32; 4];
 #[derive(Clone, Debug, PartialEq)]
 pub enum Shape {
     /// A direction in radians, clockwise from pointing up, as in CSS.
-    Linear { angle: f32 },
+    Linear {
+        angle: f32,
+    },
     Radial,
 }
 
@@ -30,13 +32,20 @@ impl Gradient {
 
         let (shape, first_stop) = if name.contains("radial") {
             // Any shape and position before the stops are ignored: the gradient is centred.
-            let has_shape = parts.first().is_some_and(|part| parse_color(first_word(part)).is_none());
+            let has_shape = parts
+                .first()
+                .is_some_and(|part| parse_color(first_word(part)).is_none());
             (Shape::Radial, usize::from(has_shape))
         } else if name.contains("linear") {
             match parts.first().and_then(|part| parse_direction(part)) {
                 Some(angle) => (Shape::Linear { angle }, 1),
                 // CSS's default is top to bottom.
-                None => (Shape::Linear { angle: std::f32::consts::PI }, 0),
+                None => (
+                    Shape::Linear {
+                        angle: std::f32::consts::PI,
+                    },
+                    0,
+                ),
             }
         } else {
             return None;
@@ -46,14 +55,21 @@ impl Gradient {
             .iter()
             .filter_map(|part| {
                 let (color, rest) = split_color(part)?;
-                let position = rest.trim().strip_suffix('%').and_then(|n| n.trim().parse::<f32>().ok()).map(|n| n / 100.0);
+                let position = rest
+                    .trim()
+                    .strip_suffix('%')
+                    .and_then(|n| n.trim().parse::<f32>().ok())
+                    .map(|n| n / 100.0);
                 Some((position, color))
             })
             .collect();
         if raw.len() < 2 {
             return None;
         }
-        Some(Self { shape, stops: fill_positions(&raw) })
+        Some(Self {
+            shape,
+            stops: fill_positions(&raw),
+        })
     }
 
     /// The colour partway along, from 0 to 1.
@@ -149,9 +165,17 @@ pub fn parse_color(text: &str) -> Option<Rgba> {
             8 => (digit(0)?, digit(2)?, digit(4)?, digit(6)?),
             _ => return None,
         };
-        return Some([f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, f32::from(a) / 255.0]);
+        return Some([
+            f32::from(r) / 255.0,
+            f32::from(g) / 255.0,
+            f32::from(b) / 255.0,
+            f32::from(a) / 255.0,
+        ]);
     }
-    let inner = text.strip_prefix("rgba(").or_else(|| text.strip_prefix("rgb("))?.strip_suffix(')')?;
+    let inner = text
+        .strip_prefix("rgba(")
+        .or_else(|| text.strip_prefix("rgb("))?
+        .strip_suffix(')')?;
     let values: Vec<f32> = inner
         .split(|c: char| c == ',' || c == '/' || c.is_whitespace())
         .filter(|part| !part.is_empty())
@@ -176,8 +200,13 @@ fn fill_positions(raw: &[(Option<f32>, Rgba)]) -> Vec<(f32, Rgba)> {
             index += 1;
             continue;
         }
-        let end = (index..=last).find(|&i| positions[i].is_some()).unwrap_or(last);
-        let (from, to) = (positions[index - 1].unwrap_or(0.0), positions[end].unwrap_or(1.0));
+        let end = (index..=last)
+            .find(|&i| positions[i].is_some())
+            .unwrap_or(last);
+        let (from, to) = (
+            positions[index - 1].unwrap_or(0.0),
+            positions[end].unwrap_or(1.0),
+        );
         let gaps = (end - index + 1) as f32;
         for (offset, slot) in positions[index..end].iter_mut().enumerate() {
             *slot = Some(from + (to - from) * (offset + 1) as f32 / gaps);
@@ -218,16 +247,33 @@ mod tests {
             Shape::Linear { angle } => angle,
             Shape::Radial => panic!("not linear"),
         };
-        assert!(close(angle("linear-gradient(to right, #000, #fff)"), PI / 2.0));
-        assert!(close(angle("linear-gradient(to top left, #000, #fff)"), PI * 1.75));
-        assert!(close(angle("linear-gradient(#000, #fff)"), PI), "CSS defaults to top to bottom");
-        assert!(close(angle("linear-gradient(0.25turn, #000, #fff)"), PI / 2.0));
+        assert!(close(
+            angle("linear-gradient(to right, #000, #fff)"),
+            PI / 2.0
+        ));
+        assert!(close(
+            angle("linear-gradient(to top left, #000, #fff)"),
+            PI * 1.75
+        ));
+        assert!(
+            close(angle("linear-gradient(#000, #fff)"), PI),
+            "CSS defaults to top to bottom"
+        );
+        assert!(close(
+            angle("linear-gradient(0.25turn, #000, #fff)"),
+            PI / 2.0
+        ));
     }
 
     #[test]
     fn stops_fill_in_like_css() {
-        let gradient = Gradient::parse("linear-gradient(to right, #000, #808080 20%, #fff, #000)").unwrap();
-        let positions: Vec<f32> = gradient.stops.iter().map(|(position, _)| *position).collect();
+        let gradient =
+            Gradient::parse("linear-gradient(to right, #000, #808080 20%, #fff, #000)").unwrap();
+        let positions: Vec<f32> = gradient
+            .stops
+            .iter()
+            .map(|(position, _)| *position)
+            .collect();
         assert_eq!(positions[0], 0.0);
         assert!(close(positions[1], 0.2));
         assert!(close(positions[2], 0.6));
@@ -236,7 +282,10 @@ mod tests {
 
     #[test]
     fn rgb_colours_with_commas_in_them_are_one_stop() {
-        let gradient = Gradient::parse("linear-gradient(to right, rgb(255, 0, 0) 0%, rgba(0, 0, 255, 0.5) 100%)").unwrap();
+        let gradient = Gradient::parse(
+            "linear-gradient(to right, rgb(255, 0, 0) 0%, rgba(0, 0, 255, 0.5) 100%)",
+        )
+        .unwrap();
         assert_eq!(gradient.stops.len(), 2);
         assert_eq!(gradient.stops[0].1, [1.0, 0.0, 0.0, 1.0]);
         assert_eq!(gradient.stops[1].1, [0.0, 0.0, 1.0, 0.5]);

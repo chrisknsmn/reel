@@ -14,7 +14,9 @@ use reel_motion::cursor::CursorTrack;
 use reel_motion::layout::{self, Rect};
 
 use crate::apple::TextureCache;
-use crate::{FrameInput, Headless, Renderer, VideoSource, WORKING_FORMAT, read_pixels, readable_target};
+use crate::{
+    FrameInput, Headless, Renderer, VideoSource, WORKING_FORMAT, read_pixels, readable_target,
+};
 
 #[derive(Debug)]
 pub struct ExportError(pub String);
@@ -71,13 +73,17 @@ impl Scene {
     pub fn new(project: Project, folder: Option<&Path>) -> Result<Self, ExportError> {
         let video_path = project.media.video.resolve(folder);
         if !video_path.exists() {
-            return Err(ExportError(format!("The project's video wasn't found: {}", video_path.display())));
+            return Err(ExportError(format!(
+                "The project's video wasn't found: {}",
+                video_path.display()
+            )));
         }
         let info = probe(&video_path)?;
         let video = (f64::from(info.width), f64::from(info.height));
         let stage = layout::stage_size(&project.look.aspect_ratio, video, &project.look.crop);
         let stage_f = (f64::from(stage.0), f64::from(stage.1));
-        let frame = layout::compute(stage_f, &project.look.padding, &project.look.crop, video).frame;
+        let frame =
+            layout::compute(stage_f, &project.look.padding, &project.look.crop, video).frame;
         let mask = Rect {
             x: frame.x / stage_f.0,
             y: frame.y / stage_f.1,
@@ -86,7 +92,14 @@ impl Scene {
         };
         let cursor = load_cursor(&project, folder);
         let path = CameraPath::build(&project, &mask, cursor.as_ref());
-        Ok(Self { project, folder: folder.map(Path::to_path_buf), video_path, info, stage, path })
+        Ok(Self {
+            project,
+            folder: folder.map(Path::to_path_buf),
+            video_path,
+            info,
+            stage,
+            path,
+        })
     }
 }
 
@@ -115,19 +128,27 @@ pub fn render_still(scene: &Scene, time: TimelineTime) -> Result<Vec<u8>, Export
         .timeline
         .to_source(time)
         .ok_or_else(|| ExportError(format!("Nothing is showing at {:.3} s.", time.secs())))?;
-    let frame = decoder.frame_at(source)?.ok_or_else(|| ExportError("The video has no frame at that time.".to_string()))?;
+    let frame = decoder
+        .frame_at(source)?
+        .ok_or_else(|| ExportError("The video has no frame at that time.".to_string()))?;
     let size = (scene.info.width, scene.info.height);
     let (luma, chroma) = cache.wrap_nv12(&frame.buffer, size);
     let (luma_view, chroma_view) = (
-        luma.texture.create_view(&wgpu::TextureViewDescriptor::default()),
-        chroma.texture.create_view(&wgpu::TextureViewDescriptor::default()),
+        luma.texture
+            .create_view(&wgpu::TextureViewDescriptor::default()),
+        chroma
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default()),
     );
     let target = readable_target(&gpu.device, scene.stage, WORKING_FORMAT);
     renderer.render(
         &target,
         &FrameInput {
             look: &scene.project.look,
-            video: VideoSource::Nv12 { luma: &luma_view, chroma: &chroma_view },
+            video: VideoSource::Nv12 {
+                luma: &luma_view,
+                chroma: &chroma_view,
+            },
             video_size: size,
             camera: scene.path.sample(time),
         },
@@ -144,7 +165,10 @@ struct OutputClock<'a> {
 
 impl OutputClock<'_> {
     fn total_frames(&self) -> u64 {
-        let total: Micros = self.clips.iter().fold(Micros::ZERO, |sum, clip| sum + clip.duration);
+        let total: Micros = self
+            .clips
+            .iter()
+            .fold(Micros::ZERO, |sum, clip| sum + clip.duration);
         (total.secs() * self.fps).round() as u64
     }
 
@@ -165,8 +189,17 @@ impl OutputClock<'_> {
 fn load_mixer(scene: &Scene) -> Option<Mixer> {
     let folder = scene.folder.as_deref();
     let project = &scene.project;
-    let video_audio: Option<Pcm> = if scene.info.has_audio { read_pcm(&scene.video_path).ok().flatten() } else { None };
-    let load = |track: &SourceTrack| track.file.as_ref().and_then(|file| read_pcm(&file.resolve(folder)).ok().flatten());
+    let video_audio: Option<Pcm> = if scene.info.has_audio {
+        read_pcm(&scene.video_path).ok().flatten()
+    } else {
+        None
+    };
+    let load = |track: &SourceTrack| {
+        track
+            .file
+            .as_ref()
+            .and_then(|file| read_pcm(&file.resolve(folder)).ok().flatten())
+    };
     let sources = source_audio(&project.media.source_tracks, video_audio.as_ref(), load);
     let added: Vec<AddedAudio> = project
         .timeline
@@ -174,7 +207,13 @@ fn load_mixer(scene: &Scene) -> Option<Mixer> {
         .iter()
         .filter_map(|item| {
             let pcm = read_pcm(&item.file.resolve(folder)).ok().flatten()?;
-            Some(AddedAudio { start: item.start, end: item.end, pcm, volume: item.volume as f32, boost: item.boost })
+            Some(AddedAudio {
+                start: item.start,
+                end: item.end,
+                pcm,
+                volume: item.volume as f32,
+                boost: item.boost,
+            })
         })
         .collect();
     (!sources.is_empty() || !added.is_empty()).then(|| Mixer::new(project, sources, added))
@@ -199,7 +238,11 @@ pub fn export_mp4(
     let mut mixer = load_mixer(scene);
 
     let gpu = gpu()?;
-    let mut renderer = Renderer::new(gpu.device.clone(), gpu.queue.clone(), wgpu::TextureFormat::Bgra8Unorm);
+    let mut renderer = Renderer::new(
+        gpu.device.clone(),
+        gpu.queue.clone(),
+        wgpu::TextureFormat::Bgra8Unorm,
+    );
     renderer.set_project_folder(scene.folder.as_deref());
     let cache = TextureCache::new(&gpu.device);
     let mut decoder = Decoder::open(&scene.video_path)?;
@@ -219,7 +262,10 @@ pub fn export_mp4(
         },
     )?;
 
-    let clock = OutputClock { clips: &project.timeline.clips, fps: f64::from(fps) };
+    let clock = OutputClock {
+        clips: &project.timeline.clips,
+        fps: f64::from(fps),
+    };
     let total = clock.total_frames();
     let video_size = (scene.info.width, scene.info.height);
     let mut current_clip: Option<&str> = None;
@@ -232,15 +278,23 @@ pub fn export_mp4(
             let _ = std::fs::remove_file(&temporary);
             return Err(ExportError("The export was cancelled.".to_string()));
         }
-        let Some((clip, time)) = clock.at(frame_index) else { break };
+        let Some((clip, time)) = clock.at(frame_index) else {
+            break;
+        };
         let source = clip.source_at(time);
         let Some(frame) = decoder.frame_at(source)? else {
-            return Err(ExportError(format!("The video has no frame at {:.3} s.", source.secs())));
+            return Err(ExportError(format!(
+                "The video has no frame at {:.3} s.",
+                source.secs()
+            )));
         };
         let (luma, chroma) = cache.wrap_nv12(&frame.buffer, video_size);
         let (luma_view, chroma_view) = (
-            luma.texture.create_view(&wgpu::TextureViewDescriptor::default()),
-            chroma.texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            luma.texture
+                .create_view(&wgpu::TextureViewDescriptor::default()),
+            chroma
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default()),
         );
         let buffer = encoder.next_buffer()?;
         let target = cache.wrap_target(&buffer, (width, height));
@@ -248,7 +302,10 @@ pub fn export_mp4(
             &target.texture,
             &FrameInput {
                 look: &project.look,
-                video: VideoSource::Nv12 { luma: &luma_view, chroma: &chroma_view },
+                video: VideoSource::Nv12 {
+                    luma: &luma_view,
+                    chroma: &chroma_view,
+                },
                 video_size,
                 camera: scene.path.sample(time),
             },
@@ -268,12 +325,20 @@ pub fn export_mp4(
             pcm.resize((end - start) as usize * CHANNELS, 0.0);
             mixer.render(&mut pcm);
             pcm_out.clear();
-            pcm_out.extend(pcm.iter().map(|sample| (sample.clamp(-1.0, 1.0) * 32767.0) as i16));
+            pcm_out.extend(
+                pcm.iter()
+                    .map(|sample| (sample.clamp(-1.0, 1.0) * 32767.0) as i16),
+            );
             encoder.append_audio(&pcm_out)?;
         }
     }
     encoder.finish()?;
-    std::fs::rename(&temporary, output).map_err(|error| ExportError(format!("The finished file couldn't be moved to {}: {error}", output.display())))?;
+    std::fs::rename(&temporary, output).map_err(|error| {
+        ExportError(format!(
+            "The finished file couldn't be moved to {}: {error}",
+            output.display()
+        ))
+    })?;
 
     Ok(ExportReport {
         frames: total,

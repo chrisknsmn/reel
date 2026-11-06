@@ -78,7 +78,11 @@ fn connections(zooms: &[Zoom]) -> Vec<Connection> {
 #[must_use]
 pub fn dominant(zooms: &[Zoom], time: TimelineTime, options: &ZoomOptions) -> Option<(usize, f64)> {
     let time_ms = time.ms();
-    let links = if options.connect { connections(zooms) } else { Vec::new() };
+    let links = if options.connect {
+        connections(zooms)
+    } else {
+        Vec::new()
+    };
 
     for link in &links {
         if time_ms >= link.end_ms && time_ms < zooms[link.next].start.ms() {
@@ -146,8 +150,16 @@ mod tests {
         }
     }
 
-    const FOCUSED: ZoomOptions = ZoomOptions { zoom_in_ms: 200.0, zoom_out_ms: 200.0, connect: true };
-    const SEPARATE: ZoomOptions = ZoomOptions { zoom_in_ms: 200.0, zoom_out_ms: 200.0, connect: false };
+    const FOCUSED: ZoomOptions = ZoomOptions {
+        zoom_in_ms: 200.0,
+        zoom_out_ms: 200.0,
+        connect: true,
+    };
+    const SEPARATE: ZoomOptions = ZoomOptions {
+        zoom_in_ms: 200.0,
+        zoom_out_ms: 200.0,
+        connect: false,
+    };
 
     #[test]
     fn strength_follows_the_documented_timing() {
@@ -169,15 +181,24 @@ mod tests {
     #[test]
     fn a_short_zoom_meets_in_the_middle() {
         let z = zoom(5000.0, 5200.0);
-        let options = ZoomOptions { zoom_in_ms: 2000.0, zoom_out_ms: 200.0, connect: false };
-        let values: Vec<f64> = (0..300).map(|step| strength(&z, 4000.0 + f64::from(step) * 10.0, &options)).collect();
+        let options = ZoomOptions {
+            zoom_in_ms: 2000.0,
+            zoom_out_ms: 200.0,
+            connect: false,
+        };
+        let values: Vec<f64> = (0..300)
+            .map(|step| strength(&z, 4000.0 + f64::from(step) * 10.0, &options))
+            .collect();
         assert!(values.iter().all(|value| (0.0..=1.0).contains(value)));
     }
 
     #[test]
     fn nothing_is_dominant_when_no_zoom_is_active() {
         let zooms = [zoom(5000.0, 6000.0)];
-        assert_eq!(dominant(&zooms, TimelineTime::from_ms(1000.0), &SEPARATE), None);
+        assert_eq!(
+            dominant(&zooms, TimelineTime::from_ms(1000.0), &SEPARATE),
+            None
+        );
     }
 
     #[test]
@@ -186,17 +207,31 @@ mod tests {
         let zooms = [zoom(5000.0, 8000.0), zoom(9000.0, 12_000.0)];
         for step in 0..=200 {
             let time = 7600.0 + f64::from(step) * 20.0;
-            let (_, value) = dominant(&zooms, TimelineTime::from_ms(time), &FOCUSED).expect("a zoom should be active");
+            let (_, value) = dominant(&zooms, TimelineTime::from_ms(time), &FOCUSED)
+                .expect("a zoom should be active");
             assert_eq!(value, 1.0, "strength dipped at {time}");
         }
-        assert_eq!(dominant(&zooms, TimelineTime::from_ms(8100.0), &FOCUSED).unwrap().0, 0);
-        assert_eq!(dominant(&zooms, TimelineTime::from_ms(8300.0), &FOCUSED).unwrap().0, 1);
+        assert_eq!(
+            dominant(&zooms, TimelineTime::from_ms(8100.0), &FOCUSED)
+                .unwrap()
+                .0,
+            0
+        );
+        assert_eq!(
+            dominant(&zooms, TimelineTime::from_ms(8300.0), &FOCUSED)
+                .unwrap()
+                .0,
+            1
+        );
     }
 
     #[test]
     fn zooms_further_apart_zoom_out_in_between() {
         let zooms = [zoom(5000.0, 8000.0), zoom(10_000.0, 12_000.0)];
-        assert_eq!(dominant(&zooms, TimelineTime::from_ms(9000.0), &FOCUSED), None);
+        assert_eq!(
+            dominant(&zooms, TimelineTime::from_ms(9000.0), &FOCUSED),
+            None
+        );
     }
 
     #[test]

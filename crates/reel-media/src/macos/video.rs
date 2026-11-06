@@ -4,7 +4,8 @@ use std::path::Path;
 
 use objc2::rc::{Retained, autoreleasepool};
 use objc2_av_foundation::{
-    AVAssetReader, AVAssetReaderStatus, AVAssetReaderTrackOutput, AVMediaTypeAudio, AVMediaTypeVideo, AVURLAsset,
+    AVAssetReader, AVAssetReaderStatus, AVAssetReaderTrackOutput, AVMediaTypeAudio,
+    AVMediaTypeVideo, AVURLAsset,
 };
 use objc2_core_foundation::CFRetained;
 use objc2_core_media::{CMTime, CMTimeRange, kCMTimePositiveInfinity};
@@ -30,8 +31,11 @@ pub struct Frame {
     pub buffer: CFRetained<CVPixelBuffer>,
 }
 
-// SAFETY: a decoded CVPixelBuffer is reference counted, and nothing writes to it after decoding.
+// SAFETY: a decoded CVPixelBuffer is reference counted, and nothing writes to it after decoding, so
+// it can be handed to and read from any thread.
 unsafe impl Send for Frame {}
+// SAFETY: as above.
+unsafe impl Sync for Frame {}
 
 fn open_asset(path: &Path) -> Retained<AVURLAsset> {
     // SAFETY: a documented constructor, given a valid URL and no options.
@@ -51,13 +55,15 @@ pub fn probe(path: &Path) -> Result<VideoInfo, MediaError> {
     // SAFETY: documented property reads on objects that were just created.
     unsafe {
         #[allow(deprecated)]
-        let tracks = asset.tracksWithMediaType(AVMediaTypeVideo.expect("this constant always exists"));
-        let track = tracks
-            .firstObject()
-            .ok_or_else(|| MediaError(format!("{} has no video that can be read.", path.display())))?;
+        let tracks =
+            asset.tracksWithMediaType(AVMediaTypeVideo.expect("this constant always exists"));
+        let track = tracks.firstObject().ok_or_else(|| {
+            MediaError(format!("{} has no video that can be read.", path.display()))
+        })?;
         let size = track.naturalSize();
         #[allow(deprecated)]
-        let audio = asset.tracksWithMediaType(AVMediaTypeAudio.expect("this constant always exists"));
+        let audio =
+            asset.tracksWithMediaType(AVMediaTypeAudio.expect("this constant always exists"));
         Ok(VideoInfo {
             width: size.width as u32,
             height: size.height as u32,
@@ -117,16 +123,21 @@ impl Decoder {
             let reader = AVAssetReader::assetReaderWithAsset_error(asset)
                 .map_err(|error| MediaError(format!("The video couldn't be opened: {error}")))?;
             #[allow(deprecated)]
-            let tracks = asset.tracksWithMediaType(AVMediaTypeVideo.expect("this constant always exists"));
-            let track = tracks.firstObject().ok_or_else(|| MediaError("The file has no video.".to_string()))?;
+            let tracks =
+                asset.tracksWithMediaType(AVMediaTypeVideo.expect("this constant always exists"));
+            let track = tracks
+                .firstObject()
+                .ok_or_else(|| MediaError("The file has no video.".to_string()))?;
             let format = NSNumber::new_u32(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange);
             let metal = NSNumber::new_bool(true);
             let settings = dictionary(&[
                 (&NSString::from_str("PixelFormatType"), format.as_ref()),
                 (&NSString::from_str("MetalCompatibility"), metal.as_ref()),
             ]);
-            let output =
-                AVAssetReaderTrackOutput::assetReaderTrackOutputWithTrack_outputSettings(&track, Some(&settings));
+            let output = AVAssetReaderTrackOutput::assetReaderTrackOutputWithTrack_outputSettings(
+                &track,
+                Some(&settings),
+            );
             output.setAlwaysCopiesSampleData(false);
             reader.addOutput(&output);
             if let Some(start) = start {
@@ -151,7 +162,9 @@ impl Decoder {
                 }
                 let sample = self.output.copyNextSampleBuffer()?;
                 let buffer = sample.image_buffer()?;
-                let pts = SourceTime(seconds_to_micros(sample.output_presentation_time_stamp().seconds()));
+                let pts = SourceTime(seconds_to_micros(
+                    sample.output_presentation_time_stamp().seconds(),
+                ));
                 Some(Frame { pts, buffer })
             }
         })
@@ -180,7 +193,10 @@ impl Decoder {
         let last_frame = SourceTime((self.duration.0 - self.frame_length.0).max(0));
         let time = time.min(last_frame);
         let wanted = time + TIME_SLACK;
-        let is_behind = self.current.as_ref().is_some_and(|frame| frame.pts > wanted);
+        let is_behind = self
+            .current
+            .as_ref()
+            .is_some_and(|frame| frame.pts > wanted);
         let is_far_ahead = self
             .upcoming
             .as_ref()

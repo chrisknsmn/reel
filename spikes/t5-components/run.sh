@@ -18,7 +18,8 @@ app="$work/T5 Components.app"
 mode=${1:-self-test}
 
 # Windows can't take focus or be captured while the screen is locked, so results would be meaningless.
-if ioreg -n Root -d1 | grep -q '"CGSSessionScreenIsLocked"=Yes'; then
+# Not `grep -q`: it exits at the first match, and pipefail then reports the pipeline as failed.
+if ioreg -n Root -d1 | grep '"CGSSessionScreenIsLocked"=Yes' > /dev/null; then
     echo "The screen is locked. Unlock it and run this again." >&2
     exit 2
 fi

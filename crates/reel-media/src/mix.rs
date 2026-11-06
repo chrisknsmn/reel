@@ -25,7 +25,9 @@ pub struct Pcm {
 impl Pcm {
     #[must_use]
     pub fn new(samples: Vec<i16>) -> Self {
-        Self { samples: Arc::new(samples) }
+        Self {
+            samples: Arc::new(samples),
+        }
     }
 
     #[must_use]
@@ -38,7 +40,10 @@ impl Pcm {
             return [0.0, 0.0];
         }
         let at = index as usize * CHANNELS;
-        [f32::from(self.samples[at]) / 32768.0, f32::from(self.samples[at + 1]) / 32768.0]
+        [
+            f32::from(self.samples[at]) / 32768.0,
+            f32::from(self.samples[at + 1]) / 32768.0,
+        ]
     }
 }
 
@@ -91,7 +96,10 @@ fn clip_gain(clip: &Clip, source: &SourceAudio) -> f32 {
     if clip.muted {
         return 0.0;
     }
-    let own: Option<&TrackSetting> = clip.track_settings.iter().find(|setting| setting.kind == source.kind);
+    let own: Option<&TrackSetting> = clip
+        .track_settings
+        .iter()
+        .find(|setting| setting.kind == source.kind);
     match own {
         Some(setting) => gain(setting.volume as f32, setting.boost),
         None => gain(source.volume, source.boost),
@@ -142,7 +150,9 @@ impl Stretcher {
     }
 
     fn best_offset(&self, pcm: &Pcm, ideal: i64) -> i64 {
-        let Some(natural) = self.natural else { return ideal };
+        let Some(natural) = self.natural else {
+            return ideal;
+        };
         let mono = |index: i64| {
             let [left, right] = pcm.frame(index);
             left + right
@@ -284,8 +294,10 @@ impl Mixer {
         }
 
         if self.stretching_clip != Some(index) {
-            let source_frame = micros_to_frames(clip.source_start.0) as f64 + into_clip as f64 * clip.speed;
-            self.stretchers = vec![Some(Stretcher::new(source_frame, clip.speed)); self.sources.len()];
+            let source_frame =
+                micros_to_frames(clip.source_start.0) as f64 + into_clip as f64 * clip.speed;
+            self.stretchers =
+                vec![Some(Stretcher::new(source_frame, clip.speed)); self.sources.len()];
             self.stretching_clip = Some(index);
         }
         for (source, stretcher) in self.sources.iter().zip(&mut self.stretchers) {
@@ -329,7 +341,11 @@ pub fn source_audio(
     let mut sources: Vec<SourceAudio> = tracks
         .iter()
         .filter_map(|track| {
-            let pcm = if track.file.is_some() { load(track) } else { video_audio.cloned() }?;
+            let pcm = if track.file.is_some() {
+                load(track)
+            } else {
+                video_audio.cloned()
+            }?;
             Some(SourceAudio {
                 kind: track.kind,
                 pcm,
@@ -370,11 +386,19 @@ mod tests {
     }
 
     fn project(seconds: i64) -> Project {
-        Project { timeline: Timeline::for_recording(Micros::from_secs(seconds)), ..Project::default() }
+        Project {
+            timeline: Timeline::for_recording(Micros::from_secs(seconds)),
+            ..Project::default()
+        }
     }
 
     fn source(pcm: Pcm) -> SourceAudio {
-        SourceAudio { kind: SourceTrackKind::Mixed, pcm, volume: 1.0, boost: false }
+        SourceAudio {
+            kind: SourceTrackKind::Mixed,
+            pcm,
+            volume: 1.0,
+            boost: false,
+        }
     }
 
     fn render(mixer: &mut Mixer, seconds: f64) -> Vec<f32> {
@@ -384,13 +408,18 @@ mod tests {
     }
 
     fn peak(samples: &[f32]) -> f32 {
-        samples.iter().fold(0.0, |peak: f32, sample| peak.max(sample.abs()))
+        samples
+            .iter()
+            .fold(0.0, |peak: f32, sample| peak.max(sample.abs()))
     }
 
     /// Frequency from how often the left channel crosses zero.
     fn frequency(samples: &[f32]) -> f64 {
         let left: Vec<f32> = samples.iter().step_by(CHANNELS).copied().collect();
-        let crossings = left.windows(2).filter(|pair| pair[0] <= 0.0 && pair[1] > 0.0).count();
+        let crossings = left
+            .windows(2)
+            .filter(|pair| pair[0] <= 0.0 && pair[1] > 0.0)
+            .count();
         crossings as f64 / (left.len() as f64 / f64::from(SAMPLE_RATE))
     }
 
@@ -408,12 +437,21 @@ mod tests {
     #[test]
     fn a_clip_at_2x_lasts_half_as_long_at_the_same_pitch() {
         let mut project = project(4);
-        project.timeline.apply(&Edit::SetClipSpeed { id: "clip-1".into(), speed: 2.0 }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipSpeed {
+                id: "clip-1".into(),
+                speed: 2.0,
+            })
+            .unwrap();
         assert_eq!(project.timeline.duration(), Micros::from_secs(2));
         let mut mixer = Mixer::new(&project, vec![source(tone(440.0, 4.0))], vec![]);
         let out = render(&mut mixer, 2.0);
         let measured = frequency(&out);
-        assert!((measured - 440.0).abs() < 8.0, "pitch moved to {measured} Hz");
+        assert!(
+            (measured - 440.0).abs() < 8.0,
+            "pitch moved to {measured} Hz"
+        );
         assert!(peak(&out) > 0.3, "it should still be audible");
         let tail = render(&mut mixer, 0.2);
         assert_eq!(peak(&tail), 0.0, "silence after the clip ends");
@@ -422,10 +460,19 @@ mod tests {
     #[test]
     fn a_clip_at_half_speed_keeps_its_pitch_too() {
         let mut project = project(2);
-        project.timeline.apply(&Edit::SetClipSpeed { id: "clip-1".into(), speed: 0.5 }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipSpeed {
+                id: "clip-1".into(),
+                speed: 0.5,
+            })
+            .unwrap();
         let mut mixer = Mixer::new(&project, vec![source(tone(440.0, 2.0))], vec![]);
         let measured = frequency(&render(&mut mixer, 4.0));
-        assert!((measured - 440.0).abs() < 8.0, "pitch moved to {measured} Hz");
+        assert!(
+            (measured - 440.0).abs() < 8.0,
+            "pitch moved to {measured} Hz"
+        );
     }
 
     #[test]
@@ -440,19 +487,33 @@ mod tests {
             samples[frame * 2 + 1] = value;
         }
         let mut project = project(6);
-        project.timeline.apply(&Edit::SetClipSpeed { id: "clip-1".into(), speed: 2.0 }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipSpeed {
+                id: "clip-1".into(),
+                speed: 2.0,
+            })
+            .unwrap();
         let mut mixer = Mixer::new(&project, vec![source(Pcm::new(samples))], vec![]);
         let out = render(&mut mixer, 3.0);
         let first = out.iter().position(|sample| sample.abs() > 0.05).unwrap() / CHANNELS;
         let seconds = first as f64 / f64::from(SAMPLE_RATE);
-        assert!((seconds - 1.5).abs() < 0.03, "the burst came out at {seconds} s");
+        assert!(
+            (seconds - 1.5).abs() < 0.03,
+            "the burst came out at {seconds} s"
+        );
     }
 
     #[test]
     fn a_moved_clip_plays_its_own_footages_sound() {
         // Two tones, and a clip that shows only the second, placed at the very start.
         let (first, second) = (tone(300.0, 2.0), tone(900.0, 2.0));
-        let samples: Vec<i16> = first.samples.iter().chain(second.samples.iter()).copied().collect();
+        let samples: Vec<i16> = first
+            .samples
+            .iter()
+            .chain(second.samples.iter())
+            .copied()
+            .collect();
         let mut project = project(4);
         project.timeline.clips[0].source_start = SourceTime::from_ms(2000.0);
         project.timeline.clips[0].duration = Micros::from_secs(2);
@@ -464,8 +525,19 @@ mod tests {
     #[test]
     fn a_muted_clip_is_silent_and_only_that_clip() {
         let mut project = project(2);
-        project.timeline.apply(&Edit::SplitClip { at: TimelineTime::from_ms(1000.0) }).unwrap();
-        project.timeline.apply(&Edit::SetClipMuted { id: "clip-1".into(), muted: true }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SplitClip {
+                at: TimelineTime::from_ms(1000.0),
+            })
+            .unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipMuted {
+                id: "clip-1".into(),
+                muted: true,
+            })
+            .unwrap();
         let mut mixer = Mixer::new(&project, vec![source(tone(440.0, 2.0))], vec![]);
         assert_eq!(peak(&render(&mut mixer, 1.0)), 0.0);
         assert!(peak(&render(&mut mixer, 1.0)) > 0.3);
@@ -475,41 +547,94 @@ mod tests {
     fn muting_stays_correct_after_a_trim_moves_the_clip() {
         // §58: Recordly compares clip time with output time, so muted parts drift after trims.
         let mut project = project(4);
-        project.timeline.apply(&Edit::SplitClip { at: TimelineTime::from_ms(2000.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SplitClip {
+                at: TimelineTime::from_ms(2000.0),
+            })
+            .unwrap();
         let second: ItemId = project.timeline.clips[1].id.clone();
-        project.timeline.apply(&Edit::SetClipMuted { id: second.clone(), muted: true }).unwrap();
-        project.timeline.apply(&Edit::MoveClip { id: second, to: TimelineTime::from_ms(2500.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipMuted {
+                id: second.clone(),
+                muted: true,
+            })
+            .unwrap();
+        project
+            .timeline
+            .apply(&Edit::MoveClip {
+                id: second,
+                to: TimelineTime::from_ms(2500.0),
+            })
+            .unwrap();
         let mut mixer = Mixer::new(&project, vec![source(tone(440.0, 4.0))], vec![]);
         assert!(peak(&render(&mut mixer, 2.0)) > 0.3, "the first clip plays");
-        assert_eq!(peak(&render(&mut mixer, 2.5)), 0.0, "the gap and the muted clip are silent");
+        assert_eq!(
+            peak(&render(&mut mixer, 2.5)),
+            0.0,
+            "the gap and the muted clip are silent"
+        );
     }
 
     #[test]
     fn each_clip_uses_its_own_track_volume() {
         // §58: Recordly applies one clip's settings to the whole export.
         let mut project = project(2);
-        project.timeline.apply(&Edit::SplitClip { at: TimelineTime::from_ms(1000.0) }).unwrap();
-        project.timeline.clips[1].track_settings =
-            vec![TrackSetting { kind: SourceTrackKind::Mixed, volume: 0.25, boost: false }];
+        project
+            .timeline
+            .apply(&Edit::SplitClip {
+                at: TimelineTime::from_ms(1000.0),
+            })
+            .unwrap();
+        project.timeline.clips[1].track_settings = vec![TrackSetting {
+            kind: SourceTrackKind::Mixed,
+            volume: 0.25,
+            boost: false,
+        }];
         let mut mixer = Mixer::new(&project, vec![source(tone(440.0, 2.0))], vec![]);
-        let (first, second) = (peak(&render(&mut mixer, 1.0)), peak(&render(&mut mixer, 1.0)));
-        assert!((second / first - 0.25).abs() < 0.01, "{first} then {second}");
+        let (first, second) = (
+            peak(&render(&mut mixer, 1.0)),
+            peak(&render(&mut mixer, 1.0)),
+        );
+        assert!(
+            (second / first - 0.25).abs() < 0.01,
+            "{first} then {second}"
+        );
     }
 
     #[test]
     fn system_and_mic_tracks_are_both_heard() {
         // §58: Recordly's editor can lose the separately recorded mic.
-        let system = SourceAudio { kind: SourceTrackKind::System, pcm: tone(300.0, 1.0), volume: 1.0, boost: false };
-        let mic = SourceAudio { kind: SourceTrackKind::Mic, pcm: tone(900.0, 1.0), volume: 1.0, boost: false };
+        let system = SourceAudio {
+            kind: SourceTrackKind::System,
+            pcm: tone(300.0, 1.0),
+            volume: 1.0,
+            boost: false,
+        };
+        let mic = SourceAudio {
+            kind: SourceTrackKind::Mic,
+            pcm: tone(900.0, 1.0),
+            volume: 1.0,
+            boost: false,
+        };
         let mut both = Mixer::new(&project(1), vec![system.clone(), mic], vec![]);
         let mut only = Mixer::new(&project(1), vec![system], vec![]);
         let (a, b) = (render(&mut both, 0.5), render(&mut only, 0.5));
-        assert!(a.iter().zip(&b).any(|(x, y)| (x - y).abs() > 0.1), "the mic should change the mix");
+        assert!(
+            a.iter().zip(&b).any(|(x, y)| (x - y).abs() > 0.1),
+            "the mic should change the mix"
+        );
     }
 
     #[test]
     fn boost_is_the_documented_gain() {
-        let boosted = SourceAudio { kind: SourceTrackKind::Mixed, pcm: tone(440.0, 1.0), volume: 0.5, boost: true };
+        let boosted = SourceAudio {
+            kind: SourceTrackKind::Mixed,
+            pcm: tone(440.0, 1.0),
+            volume: 0.5,
+            boost: true,
+        };
         let mut mixer = Mixer::new(&project(1), vec![boosted], vec![]);
         let measured = peak(&render(&mut mixer, 0.5));
         let expected = 16000.0 / 32768.0 * 0.5 * 1.35;
@@ -518,7 +643,12 @@ mod tests {
 
     #[test]
     fn nothing_goes_past_full_scale() {
-        let loud = SourceAudio { kind: SourceTrackKind::Mixed, pcm: tone(440.0, 1.0), volume: 3.0, boost: true };
+        let loud = SourceAudio {
+            kind: SourceTrackKind::Mixed,
+            pcm: tone(440.0, 1.0),
+            volume: 3.0,
+            boost: true,
+        };
         let mut mixer = Mixer::new(&project(1), vec![loud], vec![]);
         assert!(peak(&render(&mut mixer, 0.5)) <= 1.0);
     }
@@ -543,7 +673,10 @@ mod tests {
         let mut mixer = Mixer::new(&project(3), vec![], vec![added]);
         assert_eq!(peak(&render(&mut mixer, 1.0)), 0.0);
         let during = render(&mut mixer, 0.5);
-        assert!(during[2].abs() < 0.2, "it starts at the file's beginning, near a zero crossing");
+        assert!(
+            during[2].abs() < 0.2,
+            "it starts at the file's beginning, near a zero crossing"
+        );
         assert!(peak(&during) > 0.3);
         assert_eq!(peak(&render(&mut mixer, 0.5)), 0.0);
     }
@@ -551,7 +684,12 @@ mod tests {
     #[test]
     fn seeking_moves_the_sound_with_it() {
         let (first, second) = (tone(300.0, 1.0), tone(900.0, 1.0));
-        let samples: Vec<i16> = first.samples.iter().chain(second.samples.iter()).copied().collect();
+        let samples: Vec<i16> = first
+            .samples
+            .iter()
+            .chain(second.samples.iter())
+            .copied()
+            .collect();
         let mut mixer = Mixer::new(&project(2), vec![source(Pcm::new(samples))], vec![]);
         mixer.seek(TimelineTime::from_ms(1000.0));
         assert_eq!(mixer.position(), TimelineTime::from_ms(1000.0));
@@ -563,7 +701,13 @@ mod tests {
     fn rendering_in_small_blocks_matches_rendering_in_one() {
         // cpal asks for small blocks, and export asks for frame-sized ones.
         let mut project = project(2);
-        project.timeline.apply(&Edit::SetClipSpeed { id: "clip-1".into(), speed: 1.5 }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SetClipSpeed {
+                id: "clip-1".into(),
+                speed: 1.5,
+            })
+            .unwrap();
         let sources = vec![source(tone(440.0, 2.0))];
         let mut whole = Mixer::new(&project, sources.clone(), vec![]);
         let mut pieces = Mixer::new(&project, sources, vec![]);
@@ -581,9 +725,20 @@ mod tests {
     #[test]
     fn the_next_playable_position_skips_gaps() {
         let mut project = project(4);
-        project.timeline.apply(&Edit::SplitClip { at: TimelineTime::from_ms(1000.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::SplitClip {
+                at: TimelineTime::from_ms(1000.0),
+            })
+            .unwrap();
         let second = project.timeline.clips[1].id.clone();
-        project.timeline.apply(&Edit::MoveClip { id: second, to: TimelineTime::from_ms(2000.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::MoveClip {
+                id: second,
+                to: TimelineTime::from_ms(2000.0),
+            })
+            .unwrap();
         let mixer = Mixer::new(&project, vec![], vec![]);
         let rate = i64::from(SAMPLE_RATE);
         assert_eq!(mixer.next_playable(rate / 2), Some(rate / 2));

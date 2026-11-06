@@ -25,7 +25,11 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub const IDENTITY: Self = Self { scale: 1.0, x: 0.0, y: 0.0 };
+    pub const IDENTITY: Self = Self {
+        scale: 1.0,
+        x: 0.0,
+        y: 0.0,
+    };
 }
 
 /// The camera at a target zoom and strength (§32). `mask` is the recording's area on the stage, as
@@ -69,7 +73,13 @@ impl FollowState {
         *self = Self::default();
     }
 
-    fn update(&mut self, cursor: Option<Point>, scale: f64, strength: f64, region_focus: Point) -> Point {
+    fn update(
+        &mut self,
+        cursor: Option<Point>,
+        scale: f64,
+        strength: f64,
+        region_focus: Point,
+    ) -> Point {
         let start = clamp_focus(region_focus, scale);
         if strength < 0.01 {
             self.reset();
@@ -94,11 +104,21 @@ impl FollowState {
         let current = self.focus.unwrap_or(start);
         let half_span = 1.0 / (2.0 * scale);
         let inset = 2.0 * half_span * SAFE_ZONE;
-        let leaves = |value: f64, center: f64| value < center - half_span + inset || value > center + half_span - inset;
+        let leaves = |value: f64, center: f64| {
+            value < center - half_span + inset || value > center + half_span - inset
+        };
         let next = clamp_focus(
             Point {
-                x: if leaves(cursor.x, current.x) { cursor.x } else { current.x },
-                y: if leaves(cursor.y, current.y) { cursor.y } else { current.y },
+                x: if leaves(cursor.x, current.x) {
+                    cursor.x
+                } else {
+                    current.x
+                },
+                y: if leaves(cursor.y, current.y) {
+                    cursor.y
+                } else {
+                    current.y
+                },
             },
             scale,
         );
@@ -152,7 +172,10 @@ impl CameraPath {
                     let focus = if !motion.classic && zoom.mode == ZoomMode::Auto {
                         // Cursor data is on the recording's clock, so it goes through the clip. The
                         // focus is relative to the cropped frame, so the crop is taken out too.
-                        let at = source.and(cursor).zip(source).and_then(|(track, source)| track.position_at(source));
+                        let at = source
+                            .and(cursor)
+                            .zip(source)
+                            .and_then(|(track, source)| track.position_at(source));
                         let position = at.map(|(cx, cy)| Point {
                             x: (cx - crop.x) / crop.width.max(1e-6),
                             y: (cy - crop.y) / crop.height.max(1e-6),
@@ -178,7 +201,11 @@ impl CameraPath {
                 y.snap(target.y);
             }
             was_in_gap = in_gap;
-            samples.push(Camera { scale: scale.value, x: x.value, y: y.value });
+            samples.push(Camera {
+                scale: scale.value,
+                x: x.value,
+                y: y.value,
+            });
         }
         Self { samples }
     }
@@ -222,26 +249,35 @@ mod tests {
     use reel_core::time::SourceTime;
     use reel_core::timeline::Timeline;
 
-    const WHOLE: Rect = Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 };
+    const WHOLE: Rect = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 1.0,
+        height: 1.0,
+    };
 
     fn project_with_zoom(start: f64, end: f64, mode: ZoomMode, focus: Point) -> Project {
         let mut project = Project {
             timeline: Timeline::for_recording(Micros::from_secs(30)),
             ..Project::default()
         };
-        project.timeline.apply(&Edit::AddZoom {
-            start: TimelineTime::from_ms(start),
-            depth: 1,
-            focus,
-            mode,
-        })
-        .unwrap();
-        project.timeline.apply(&Edit::ResizeZoom {
-            id: "zoom-1".into(),
-            edge: reel_core::edit::Edge::End,
-            to: TimelineTime::from_ms(end),
-        })
-        .unwrap();
+        project
+            .timeline
+            .apply(&Edit::AddZoom {
+                start: TimelineTime::from_ms(start),
+                depth: 1,
+                focus,
+                mode,
+            })
+            .unwrap();
+        project
+            .timeline
+            .apply(&Edit::ResizeZoom {
+                id: "zoom-1".into(),
+                edge: reel_core::edit::Edge::End,
+                to: TimelineTime::from_ms(end),
+            })
+            .unwrap();
         project
     }
 
@@ -256,7 +292,10 @@ mod tests {
 
     #[test]
     fn at_no_strength_the_camera_does_nothing() {
-        assert_eq!(target_camera(&WHOLE, 2.0, 0.0, Point::CENTER), Camera::IDENTITY);
+        assert_eq!(
+            target_camera(&WHOLE, 2.0, 0.0, Point::CENTER),
+            Camera::IDENTITY
+        );
     }
 
     #[test]
@@ -271,16 +310,26 @@ mod tests {
         let path = CameraPath::build(&project, &WHOLE, None);
         let at = |ms| path.sample(TimelineTime::from_ms(ms));
         assert_eq!(at(1000.0), Camera::IDENTITY);
-        assert!((at(9000.0).scale - 1.5).abs() < 1e-3, "settled at the zoom's scale");
-        assert!((at(20_000.0).scale - 1.0).abs() < 1e-3, "back out afterwards");
+        assert!(
+            (at(9000.0).scale - 1.5).abs() < 1e-3,
+            "settled at the zoom's scale"
+        );
+        assert!(
+            (at(20_000.0).scale - 1.0).abs() < 1e-3,
+            "back out afterwards"
+        );
         let mid = at(4900.0).scale;
         assert!(mid > 1.0 && mid < 1.5, "the spring takes time: {mid}");
     }
 
     #[test]
     fn the_same_project_always_gives_the_same_path() {
-        let project = project_with_zoom(5000.0, 11_000.0, ZoomMode::Manual, Point { x: 0.3, y: 0.7 });
-        assert_eq!(CameraPath::build(&project, &WHOLE, None), CameraPath::build(&project, &WHOLE, None));
+        let project =
+            project_with_zoom(5000.0, 11_000.0, ZoomMode::Manual, Point { x: 0.3, y: 0.7 });
+        assert_eq!(
+            CameraPath::build(&project, &WHOLE, None),
+            CameraPath::build(&project, &WHOLE, None)
+        );
     }
 
     #[test]
@@ -291,19 +340,37 @@ mod tests {
         project.zoom_motion.classic = false;
         let sprung = CameraPath::build(&project, &WHOLE, None);
         let time = TimelineTime::from_ms(4800.0);
-        assert!(classic.sample(time).scale > sprung.sample(time).scale, "the spring lags behind the target");
+        assert!(
+            classic.sample(time).scale > sprung.sample(time).scale,
+            "the spring lags behind the target"
+        );
     }
 
     #[test]
     fn a_gap_in_the_timeline_cuts_the_camera() {
         let mut project = project_with_zoom(1000.0, 2500.0, ZoomMode::Manual, Point::CENTER);
-        project.timeline.apply(&Edit::SplitClip { at: TimelineTime::from_ms(3000.0) }).unwrap();
         project
             .timeline
-            .apply(&Edit::TrimClip { id: "clip-1".into(), edge: reel_core::edit::Edge::End, to: TimelineTime::from_ms(3000.0) })
+            .apply(&Edit::SplitClip {
+                at: TimelineTime::from_ms(3000.0),
+            })
+            .unwrap();
+        project
+            .timeline
+            .apply(&Edit::TrimClip {
+                id: "clip-1".into(),
+                edge: reel_core::edit::Edge::End,
+                to: TimelineTime::from_ms(3000.0),
+            })
             .unwrap();
         let second = project.timeline.clips[1].id.clone();
-        project.timeline.apply(&Edit::MoveClip { id: second, to: TimelineTime::from_ms(8000.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::MoveClip {
+                id: second,
+                to: TimelineTime::from_ms(8000.0),
+            })
+            .unwrap();
         let path = CameraPath::build(&project, &WHOLE, None);
         // Whatever was happening, the first frame after the gap is exactly on target.
         assert_eq!(path.sample(TimelineTime::from_ms(8010.0)), Camera::IDENTITY);
@@ -330,7 +397,10 @@ mod tests {
             path.sample(TimelineTime::from_ms(10_000.0))
         };
         let (auto, manual) = (camera_at(ZoomMode::Auto), camera_at(ZoomMode::Manual));
-        assert!(auto.x < manual.x - 0.05, "auto should pan toward the cursor: {auto:?} vs {manual:?}");
+        assert!(
+            auto.x < manual.x - 0.05,
+            "auto should pan toward the cursor: {auto:?} vs {manual:?}"
+        );
         assert!(auto.y < manual.y - 0.05);
     }
 
@@ -339,7 +409,8 @@ mod tests {
         let cursor = cursor_at(0.55, 0.45);
         let auto = {
             let project = project_with_zoom(5000.0, 15_000.0, ZoomMode::Auto, Point::CENTER);
-            CameraPath::build(&project, &WHOLE, Some(&cursor)).sample(TimelineTime::from_ms(10_000.0))
+            CameraPath::build(&project, &WHOLE, Some(&cursor))
+                .sample(TimelineTime::from_ms(10_000.0))
         };
         let manual = {
             let project = project_with_zoom(5000.0, 15_000.0, ZoomMode::Manual, Point::CENTER);
@@ -354,21 +425,66 @@ mod tests {
         // should still follow the cursor as it was at that point in the recording.
         let track = CursorTrack {
             samples: vec![
-                CursorSample { time: SourceTime::ZERO, x: 0.9, y: 0.9, interaction: Interaction::Move, shape: CursorShape::Arrow },
-                CursorSample { time: SourceTime::from_ms(9999.0), x: 0.9, y: 0.9, interaction: Interaction::Move, shape: CursorShape::Arrow },
-                CursorSample { time: SourceTime::from_ms(10_000.0), x: 0.1, y: 0.1, interaction: Interaction::Move, shape: CursorShape::Arrow },
-                CursorSample { time: SourceTime::from_ms(30_000.0), x: 0.1, y: 0.1, interaction: Interaction::Move, shape: CursorShape::Arrow },
+                CursorSample {
+                    time: SourceTime::ZERO,
+                    x: 0.9,
+                    y: 0.9,
+                    interaction: Interaction::Move,
+                    shape: CursorShape::Arrow,
+                },
+                CursorSample {
+                    time: SourceTime::from_ms(9999.0),
+                    x: 0.9,
+                    y: 0.9,
+                    interaction: Interaction::Move,
+                    shape: CursorShape::Arrow,
+                },
+                CursorSample {
+                    time: SourceTime::from_ms(10_000.0),
+                    x: 0.1,
+                    y: 0.1,
+                    interaction: Interaction::Move,
+                    shape: CursorShape::Arrow,
+                },
+                CursorSample {
+                    time: SourceTime::from_ms(30_000.0),
+                    x: 0.1,
+                    y: 0.1,
+                    interaction: Interaction::Move,
+                    shape: CursorShape::Arrow,
+                },
             ],
         };
-        let mut project = Project { timeline: Timeline::for_recording(Micros::from_secs(30)), ..Project::default() };
+        let mut project = Project {
+            timeline: Timeline::for_recording(Micros::from_secs(30)),
+            ..Project::default()
+        };
         // Show footage from 15 s onward at the start of the timeline: the cursor is at 0.1 throughout.
         project.timeline.clips[0].source_start = SourceTime::from_ms(15_000.0);
         project.timeline.clips[0].duration = Micros::from_secs(15);
-        project.timeline.apply(&Edit::AddZoom { start: TimelineTime::from_ms(1000.0), depth: 1, focus: Point::CENTER, mode: ZoomMode::Auto }).unwrap();
-        project.timeline.apply(&Edit::ResizeZoom { id: "zoom-1".into(), edge: reel_core::edit::Edge::End, to: TimelineTime::from_ms(9000.0) }).unwrap();
+        project
+            .timeline
+            .apply(&Edit::AddZoom {
+                start: TimelineTime::from_ms(1000.0),
+                depth: 1,
+                focus: Point::CENTER,
+                mode: ZoomMode::Auto,
+            })
+            .unwrap();
+        project
+            .timeline
+            .apply(&Edit::ResizeZoom {
+                id: "zoom-1".into(),
+                edge: reel_core::edit::Edge::End,
+                to: TimelineTime::from_ms(9000.0),
+            })
+            .unwrap();
         let path = CameraPath::build(&project, &WHOLE, Some(&track));
         let camera = path.sample(TimelineTime::from_ms(5000.0));
         // Panned toward 0.1, so the frame moves right: x is above the centred value of -0.25.
-        assert!(camera.x > -0.2, "should follow the footage's cursor, got {camera:?}");
+        assert!(
+            camera.x > -0.2,
+            "should follow the footage's cursor, got {camera:?}"
+        );
     }
 }

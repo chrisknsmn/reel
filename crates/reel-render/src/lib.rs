@@ -32,7 +32,10 @@ const BLUR_FACTOR: f64 = 3.0;
 pub enum VideoSource<'a> {
     Rgba(&'a wgpu::TextureView),
     /// BT.709 limited range, with a full-size luma plane and a half-size chroma plane.
-    Nv12 { luma: &'a wgpu::TextureView, chroma: &'a wgpu::TextureView },
+    Nv12 {
+        luma: &'a wgpu::TextureView,
+        chroma: &'a wgpu::TextureView,
+    },
 }
 
 /// What to draw for one frame.
@@ -45,7 +48,10 @@ pub struct FrameInput<'a> {
 }
 
 fn uniform_bytes(values: &[f32]) -> Vec<u8> {
-    values.iter().flat_map(|value| value.to_ne_bytes()).collect()
+    values
+        .iter()
+        .flat_map(|value| value.to_ne_bytes())
+        .collect()
 }
 
 struct Background_ {
@@ -138,7 +144,11 @@ fn make_texture(
 ) -> wgpu::Texture {
     device.create_texture(&wgpu::TextureDescriptor {
         label: None,
-        size: wgpu::Extent3d { width: size.0.max(1), height: size.1.max(1), depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width: size.0.max(1),
+            height: size.1.max(1),
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -151,7 +161,11 @@ fn make_texture(
 impl Renderer {
     /// Sets up a renderer that draws to textures of this format.
     #[must_use]
-    pub fn new(device: wgpu::Device, queue: wgpu::Queue, target_format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
@@ -171,9 +185,11 @@ impl Renderer {
                 operation: wgpu::BlendOperation::Add,
             },
         };
-        let background_pipeline = fullscreen_pipeline(&device, shaders::BACKGROUND, WORKING_FORMAT, None);
+        let background_pipeline =
+            fullscreen_pipeline(&device, shaders::BACKGROUND, WORKING_FORMAT, None);
         let blur_pipeline = fullscreen_pipeline(&device, shaders::BLUR, WORKING_FORMAT, None);
-        let frame_pipeline = fullscreen_pipeline(&device, shaders::FRAME, target_format, Some(premultiplied));
+        let frame_pipeline =
+            fullscreen_pipeline(&device, shaders::FRAME, target_format, Some(premultiplied));
         let copy_pipeline = fullscreen_pipeline(&device, COPY, target_format, None);
         let frame_params = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -190,8 +206,16 @@ impl Renderer {
         queue.write_texture(
             placeholder_texture.as_image_copy(),
             &[0, 0, 0, 255],
-            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
-            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: Some(1),
+            },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
         let placeholder = placeholder_texture.create_view(&wgpu::TextureViewDescriptor::default());
         Self {
@@ -237,7 +261,9 @@ impl Renderer {
         let stage = (size.width, size.height);
         self.prepare_background(input.look, stage);
         let view = target.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         self.encode(&mut encoder, &view, stage, input);
         self.queue.submit(Some(encoder.finish()));
     }
@@ -256,13 +282,22 @@ impl Renderer {
         let layout = layout::compute(stage_f, &look.padding, &look.crop, video_f);
         self.write_frame_params(input, &layout, stage_f);
 
-        let background = self.background.as_ref().expect("prepare_background runs first");
+        let background = self
+            .background
+            .as_ref()
+            .expect("prepare_background runs first");
         let copy_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.copy_pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&background.view) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&background.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
             ],
         });
         let (plane0, plane1) = match input.video {
@@ -273,10 +308,22 @@ impl Renderer {
             label: None,
             layout: &self.frame_pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.frame_params.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(plane0) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(plane1) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.frame_params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(plane0),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(plane1),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
             ],
         });
 
@@ -286,7 +333,10 @@ impl Renderer {
                 view,
                 depth_slice: None,
                 resolve_target: None,
-                ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
@@ -330,7 +380,8 @@ impl Renderer {
                 0.0,
             ]);
         }
-        self.queue.write_buffer(&self.frame_params, 0, &uniform_bytes(&values));
+        self.queue
+            .write_buffer(&self.frame_params, 0, &uniform_bytes(&values));
     }
 
     /// Makes sure the background for this look and size is ready. It's kept until either changes.
@@ -340,7 +391,11 @@ impl Renderer {
             blur: look.background_blur,
             stage,
         };
-        if self.background.as_ref().is_some_and(|current| current.key == key) {
+        if self
+            .background
+            .as_ref()
+            .is_some_and(|current| current.key == key)
+        {
             return;
         }
         let texture = self.draw_background(&key);
@@ -378,14 +433,28 @@ impl Renderer {
             label: None,
             layout: &self.background_pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: params.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&ramp) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&image) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&ramp),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&image),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
             ],
         });
         let target_view = target.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("background"),
@@ -393,7 +462,10 @@ impl Renderer {
                     view: &target_view,
                     depth_slice: None,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -415,7 +487,13 @@ impl Renderer {
         self.blur_pass(&horizontal, key.stage, sigma, (0.0, 1.0))
     }
 
-    fn blur_pass(&self, source: &wgpu::Texture, stage: (u32, u32), sigma: f32, axis: (f32, f32)) -> wgpu::Texture {
+    fn blur_pass(
+        &self,
+        source: &wgpu::Texture,
+        stage: (u32, u32),
+        sigma: f32,
+        axis: (f32, f32),
+    ) -> wgpu::Texture {
         let usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
         let target = make_texture(&self.device, stage, WORKING_FORMAT, usage);
         let values = [
@@ -436,13 +514,24 @@ impl Renderer {
             label: None,
             layout: &self.blur_pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: params.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&source_view) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(&self.sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&source_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
             ],
         });
         let target_view = target.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("blur"),
@@ -450,7 +539,10 @@ impl Renderer {
                     view: &target_view,
                     depth_slice: None,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -473,15 +565,30 @@ impl Renderer {
     fn background_inputs(
         &mut self,
         background: &Background,
-    ) -> (u32, f32, [f32; 4], wgpu::TextureView, wgpu::TextureView, (f32, f32)) {
+    ) -> (
+        u32,
+        f32,
+        [f32; 4],
+        wgpu::TextureView,
+        wgpu::TextureView,
+        (f32, f32),
+    ) {
         let solid = |color: [f32; 4], placeholder: &wgpu::TextureView| {
-            (0_u32, 0.0, color, placeholder.clone(), placeholder.clone(), (1.0, 1.0))
+            (
+                0_u32,
+                0.0,
+                color,
+                placeholder.clone(),
+                placeholder.clone(),
+                (1.0, 1.0),
+            )
         };
         let fallback = [0.125, 0.188, 0.247, 1.0];
         match background {
             Background::Color(text) => {
                 let color = parse_color(text).unwrap_or_else(|| {
-                    self.warnings.push(format!("Couldn't read the background colour {text}."));
+                    self.warnings
+                        .push(format!("Couldn't read the background colour {text}."));
                     fallback
                 });
                 solid(color, &self.placeholder)
@@ -493,15 +600,25 @@ impl Renderer {
                         Shape::Linear { angle } => (1, angle),
                         Shape::Radial => (2, 0.0),
                     };
-                    (kind, angle, fallback, ramp, self.placeholder.clone(), (1.0, 1.0))
+                    (
+                        kind,
+                        angle,
+                        fallback,
+                        ramp,
+                        self.placeholder.clone(),
+                        (1.0, 1.0),
+                    )
                 }
                 None => {
-                    self.warnings.push(format!("Couldn't read the gradient {text}."));
+                    self.warnings
+                        .push(format!("Couldn't read the gradient {text}."));
                     solid(fallback, &self.placeholder)
                 }
             },
             Background::Bundled(name) => {
-                self.warnings.push(format!("The wallpaper {name} isn't available, so a plain colour is shown."));
+                self.warnings.push(format!(
+                    "The wallpaper {name} isn't available, so a plain colour is shown."
+                ));
                 solid(fallback, &self.placeholder)
             }
             Background::Image(media) => {
@@ -509,18 +626,24 @@ impl Renderer {
                 match image::open(&path) {
                     Ok(loaded) => self.image_background(&loaded.to_rgba8()),
                     Err(error) => {
-                        self.warnings.push(format!("Couldn't open the background {}: {error}.", path.display()));
+                        self.warnings.push(format!(
+                            "Couldn't open the background {}: {error}.",
+                            path.display()
+                        ));
                         solid(fallback, &self.placeholder)
                     }
                 }
             }
-            Background::DataUrl(text) => match decode_data_url(text).and_then(|bytes| image::load_from_memory(&bytes).ok()) {
-                Some(loaded) => self.image_background(&loaded.to_rgba8()),
-                None => {
-                    self.warnings.push("Couldn't read the embedded background image.".to_string());
-                    solid(fallback, &self.placeholder)
+            Background::DataUrl(text) => {
+                match decode_data_url(text).and_then(|bytes| image::load_from_memory(&bytes).ok()) {
+                    Some(loaded) => self.image_background(&loaded.to_rgba8()),
+                    None => {
+                        self.warnings
+                            .push("Couldn't read the embedded background image.".to_string());
+                        solid(fallback, &self.placeholder)
+                    }
                 }
-            },
+            }
             Background::Video(media) => {
                 // Video backgrounds arrive with step 7.1. Until then, say so rather than go quiet.
                 self.warnings.push(format!(
@@ -535,7 +658,14 @@ impl Renderer {
     fn image_background(
         &self,
         pixels: &image::RgbaImage,
-    ) -> (u32, f32, [f32; 4], wgpu::TextureView, wgpu::TextureView, (f32, f32)) {
+    ) -> (
+        u32,
+        f32,
+        [f32; 4],
+        wgpu::TextureView,
+        wgpu::TextureView,
+        (f32, f32),
+    ) {
         let (width, height) = pixels.dimensions();
         let texture = make_texture(
             &self.device,
@@ -546,11 +676,22 @@ impl Renderer {
         self.queue.write_texture(
             texture.as_image_copy(),
             pixels.as_raw(),
-            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(width * 4), rows_per_image: Some(height) },
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
             texture.size(),
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        (3, 0.0, [0.0; 4], self.placeholder.clone(), view, (width as f32, height as f32))
+        (
+            3,
+            0.0,
+            [0.0; 4],
+            self.placeholder.clone(),
+            view,
+            (width as f32, height as f32),
+        )
     }
 
     /// A gradient's colours in a strip of texture, which the shader looks up.
@@ -571,7 +712,11 @@ impl Renderer {
         self.queue.write_texture(
             texture.as_image_copy(),
             &bytes,
-            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(WIDTH * 4), rows_per_image: Some(1) },
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(WIDTH * 4),
+                rows_per_image: Some(1),
+            },
             texture.size(),
         );
         texture.create_view(&wgpu::TextureViewDescriptor::default())
@@ -622,15 +767,25 @@ impl Headless {
             apply_limit_buckets: false,
         }))
         .ok()?;
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
         Some(Self { device, queue })
     }
 }
 
 /// A texture to render into, whose pixels can be read back.
 #[must_use]
-pub fn readable_target(device: &wgpu::Device, size: (u32, u32), format: wgpu::TextureFormat) -> wgpu::Texture {
-    make_texture(device, size, format, wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC)
+pub fn readable_target(
+    device: &wgpu::Device,
+    size: (u32, u32),
+    format: wgpu::TextureFormat,
+) -> wgpu::Texture {
+    make_texture(
+        device,
+        size,
+        format,
+        wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+    )
 }
 
 /// Reads a texture's pixels, tightly packed.
@@ -650,14 +805,23 @@ pub fn read_pixels(device: &wgpu::Device, queue: &wgpu::Queue, texture: &wgpu::T
         texture.as_image_copy(),
         wgpu::TexelCopyBufferInfo {
             buffer: &buffer,
-            layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(stride), rows_per_image: Some(size.height) },
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(stride),
+                rows_per_image: Some(size.height),
+            },
         },
         size,
     );
     queue.submit(Some(encoder.finish()));
-    buffer.slice(..).map_async(wgpu::MapMode::Read, |result| result.expect("reading a texture failed"));
+    buffer.slice(..).map_async(wgpu::MapMode::Read, |result| {
+        result.expect("reading a texture failed")
+    });
     let _ = device.poll(wgpu::PollType::wait_indefinitely());
-    let data = buffer.slice(..).get_mapped_range().expect("the buffer was just mapped");
+    let data = buffer
+        .slice(..)
+        .get_mapped_range()
+        .expect("the buffer was just mapped");
     let mut pixels = Vec::with_capacity((row * size.height) as usize);
     for line in data.chunks_exact(stride as usize) {
         pixels.extend_from_slice(&line[..row as usize]);
@@ -669,7 +833,12 @@ pub fn read_pixels(device: &wgpu::Device, queue: &wgpu::Queue, texture: &wgpu::T
 
 /// An RGBA image as a texture, for tests and stills.
 #[must_use]
-pub fn texture_from_rgba(device: &wgpu::Device, queue: &wgpu::Queue, size: (u32, u32), pixels: &[u8]) -> wgpu::Texture {
+pub fn texture_from_rgba(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    size: (u32, u32),
+    pixels: &[u8],
+) -> wgpu::Texture {
     let texture = make_texture(
         device,
         size,
@@ -679,7 +848,11 @@ pub fn texture_from_rgba(device: &wgpu::Device, queue: &wgpu::Queue, size: (u32,
     queue.write_texture(
         texture.as_image_copy(),
         pixels,
-        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(size.0 * 4), rows_per_image: Some(size.1) },
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(size.0 * 4),
+            rows_per_image: Some(size.1),
+        },
         texture.size(),
     );
     texture
@@ -691,7 +864,10 @@ mod tests {
 
     #[test]
     fn data_urls_decode() {
-        assert_eq!(decode_data_url("data:text/plain;base64,aGVsbG8=").unwrap(), b"hello");
+        assert_eq!(
+            decode_data_url("data:text/plain;base64,aGVsbG8=").unwrap(),
+            b"hello"
+        );
         assert_eq!(decode_data_url("no marker"), None);
     }
 }

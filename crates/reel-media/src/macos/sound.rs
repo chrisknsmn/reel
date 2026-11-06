@@ -24,12 +24,17 @@ pub fn read_pcm(path: &Path) -> Result<Option<Pcm>, MediaError> {
     unsafe {
         let asset = AVURLAsset::URLAssetWithURL_options(&file_url(path), None);
         #[allow(deprecated)]
-        let tracks = asset.tracksWithMediaType(AVMediaTypeAudio.expect("this constant always exists"));
+        let tracks =
+            asset.tracksWithMediaType(AVMediaTypeAudio.expect("this constant always exists"));
         let Some(track) = tracks.firstObject() else {
             return Ok(None);
         };
-        let reader = AVAssetReader::assetReaderWithAsset_error(&asset)
-            .map_err(|error| MediaError(format!("The audio in {} couldn't be opened: {error}", path.display())))?;
+        let reader = AVAssetReader::assetReaderWithAsset_error(&asset).map_err(|error| {
+            MediaError(format!(
+                "The audio in {} couldn't be opened: {error}",
+                path.display()
+            ))
+        })?;
 
         let format = NSNumber::new_u32(LINEAR_PCM);
         let rate = NSNumber::new_f64(f64::from(SAMPLE_RATE));
@@ -39,18 +44,35 @@ pub fn read_pcm(path: &Path) -> Result<Option<Pcm>, MediaError> {
         let settings = dictionary(&[
             (&NSString::from_str("AVFormatIDKey"), format.as_ref()),
             (&NSString::from_str("AVSampleRateKey"), rate.as_ref()),
-            (&NSString::from_str("AVNumberOfChannelsKey"), channels.as_ref()),
-            (&NSString::from_str("AVLinearPCMBitDepthKey"), depth.as_ref()),
+            (
+                &NSString::from_str("AVNumberOfChannelsKey"),
+                channels.as_ref(),
+            ),
+            (
+                &NSString::from_str("AVLinearPCMBitDepthKey"),
+                depth.as_ref(),
+            ),
             (&NSString::from_str("AVLinearPCMIsFloatKey"), no.as_ref()),
-            (&NSString::from_str("AVLinearPCMIsBigEndianKey"), no.as_ref()),
-            (&NSString::from_str("AVLinearPCMIsNonInterleaved"), no.as_ref()),
+            (
+                &NSString::from_str("AVLinearPCMIsBigEndianKey"),
+                no.as_ref(),
+            ),
+            (
+                &NSString::from_str("AVLinearPCMIsNonInterleaved"),
+                no.as_ref(),
+            ),
         ]);
-        let output =
-            AVAssetReaderTrackOutput::assetReaderTrackOutputWithTrack_outputSettings(&track, Some(&settings));
+        let output = AVAssetReaderTrackOutput::assetReaderTrackOutputWithTrack_outputSettings(
+            &track,
+            Some(&settings),
+        );
         output.setAlwaysCopiesSampleData(false);
         reader.addOutput(&output);
         if !reader.startReading() {
-            return Err(MediaError(format!("The audio in {} couldn't be read.", path.display())));
+            return Err(MediaError(format!(
+                "The audio in {} couldn't be read.",
+                path.display()
+            )));
         }
 
         let mut samples: Vec<i16> = Vec::new();
@@ -63,7 +85,8 @@ pub fn read_pcm(path: &Path) -> Result<Option<Pcm>, MediaError> {
                     let bytes = block.data_length();
                     let start = samples.len();
                     samples.resize(start + bytes / 2, 0);
-                    let destination = NonNull::new_unchecked(samples.as_mut_ptr().add(start).cast::<c_void>());
+                    let destination =
+                        NonNull::new_unchecked(samples.as_mut_ptr().add(start).cast::<c_void>());
                     if block.copy_data_bytes(0, bytes, destination) != 0 {
                         samples.truncate(start);
                     }

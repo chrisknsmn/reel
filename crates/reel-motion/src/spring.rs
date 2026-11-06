@@ -103,7 +103,9 @@ fn position(t: f64, target: f64, delta: f64, velocity: f64, ratio: f64, frequenc
         // Capped so sinh and cosh stay finite.
         let phase = (damped * t).min(300.0);
         target
-            - (envelope * ((velocity + ratio * frequency * delta) * phase.sinh() + damped * delta * phase.cosh()))
+            - (envelope
+                * ((velocity + ratio * frequency * delta) * phase.sinh()
+                    + damped * delta * phase.cosh()))
                 / damped
     }
 }
@@ -130,7 +132,9 @@ impl Spring {
             self.snap(target);
             return self.value;
         }
-        if (target - self.value).abs() <= config.rest_delta && self.velocity.abs() <= config.rest_speed {
+        if (target - self.value).abs() <= config.rest_delta
+            && self.velocity.abs() <= config.rest_speed
+        {
             self.snap(target);
             return self.value;
         }
@@ -144,7 +148,8 @@ impl Spring {
 
         // A moving target can carry an over-damped spring past it, which would make it wobble back.
         if ratio >= 1.0 {
-            let crossed = (self.value <= target && current > target) || (self.value >= target && current < target);
+            let crossed = (self.value <= target && current > target)
+                || (self.value >= target && current < target);
             if crossed {
                 self.snap(target);
                 return self.value;
@@ -154,7 +159,8 @@ impl Spring {
         let epsilon = 0.0001;
         let ahead = position(seconds + epsilon, target, delta, velocity, ratio, frequency);
         let new_velocity = (ahead - current) / epsilon;
-        if new_velocity.abs() <= config.rest_speed && (target - current).abs() <= config.rest_delta {
+        if new_velocity.abs() <= config.rest_speed && (target - current).abs() <= config.rest_delta
+        {
             self.snap(target);
         } else {
             self.value = current;
@@ -168,7 +174,11 @@ impl Spring {
 mod tests {
     use super::*;
 
-    const DEFAULT_CAMERA: SpringFactors = SpringFactors { stiffness: 1.0, damping: 1.13, mass: 1.12 };
+    const DEFAULT_CAMERA: SpringFactors = SpringFactors {
+        stiffness: 1.0,
+        damping: 1.13,
+        mass: 1.12,
+    };
 
     #[test]
     fn the_default_camera_spring_matches_the_documented_values() {
@@ -208,9 +218,17 @@ mod tests {
     fn a_less_damped_spring_can_overshoot() {
         let mut spring = Spring::default();
         spring.snap(0.0);
-        let config = SpringConfig { stiffness: 400.0, damping: 4.0, mass: 1.0, rest_delta: 0.0001, rest_speed: 0.001 };
+        let config = SpringConfig {
+            stiffness: 400.0,
+            damping: 4.0,
+            mass: 1.0,
+            rest_delta: 0.0001,
+            rest_speed: 0.001,
+        };
         assert!(config.damping_ratio() < 1.0);
-        let highest = (0..200).map(|_| spring.step(1.0, 8.0, &config)).fold(0.0, f64::max);
+        let highest = (0..200)
+            .map(|_| spring.step(1.0, 8.0, &config))
+            .fold(0.0, f64::max);
         assert!(highest > 1.0);
     }
 
@@ -219,9 +237,18 @@ mod tests {
         let mut spring = Spring::default();
         spring.snap(0.0);
         let stiffness = 100.0_f64;
-        let config = SpringConfig { stiffness, damping: 2.0 * stiffness.sqrt(), mass: 1.0, rest_delta: 0.0005, rest_speed: 0.01 };
+        let config = SpringConfig {
+            stiffness,
+            damping: 2.0 * stiffness.sqrt(),
+            mass: 1.0,
+            rest_delta: 0.0005,
+            rest_speed: 0.01,
+        };
         assert!((config.damping_ratio() - 1.0).abs() < 1e-12);
-        let last = (0..500).map(|_| spring.step(1.0, 16.0, &config)).last().unwrap();
+        let last = (0..500)
+            .map(|_| spring.step(1.0, 16.0, &config))
+            .last()
+            .unwrap();
         assert_eq!(last, 1.0);
     }
 
@@ -235,7 +262,11 @@ mod tests {
 
     #[test]
     fn the_cursor_spring_gets_softer_with_more_smoothing() {
-        let factors = SpringFactors { stiffness: 1.0, damping: 1.0, mass: 1.0 };
+        let factors = SpringFactors {
+            stiffness: 1.0,
+            damping: 1.0,
+            mass: 1.0,
+        };
         let (low, high) = (cursor_config(0.25, factors), cursor_config(1.5, factors));
         assert!(low.stiffness > high.stiffness);
         assert!(low.mass < high.mass);

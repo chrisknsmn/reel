@@ -73,7 +73,9 @@ impl CursorTrack {
         let mut samples: Vec<CursorSample> = file
             .samples
             .into_iter()
-            .filter(|sample| sample.time_ms.is_finite() && sample.cx.is_finite() && sample.cy.is_finite())
+            .filter(|sample| {
+                sample.time_ms.is_finite() && sample.cx.is_finite() && sample.cy.is_finite()
+            })
             .map(|sample| CursorSample {
                 time: SourceTime::from_ms(sample.time_ms),
                 x: sample.cx,
@@ -100,7 +102,11 @@ impl CursorTrack {
         let next = self.samples.partition_point(|sample| sample.time <= time);
         let (a, b) = (&self.samples[next - 1], &self.samples[next]);
         let span = (b.time - a.time).0 as f64;
-        let t = if span > 0.0 { (time - a.time).0 as f64 / span } else { 0.0 };
+        let t = if span > 0.0 {
+            (time - a.time).0 as f64 / span
+        } else {
+            0.0
+        };
         Some((a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t))
     }
 
@@ -108,7 +114,8 @@ impl CursorTrack {
     #[must_use]
     pub fn shape_at(&self, time: SourceTime) -> CursorShape {
         let next = self.samples.partition_point(|sample| sample.time <= time);
-        next.checked_sub(1).map_or(CursorShape::Arrow, |index| self.samples[index].shape)
+        next.checked_sub(1)
+            .map_or(CursorShape::Arrow, |index| self.samples[index].shape)
     }
 }
 
@@ -137,8 +144,14 @@ mod tests {
         let (x, y) = track.position_at(SourceTime::from_ms(150.0)).unwrap();
         assert!((x - 0.3).abs() < 1e-9);
         assert!((y - 0.5).abs() < 1e-9);
-        assert_eq!(track.position_at(SourceTime::from_ms(-5.0)), Some((0.0, 0.0)));
-        assert_eq!(track.position_at(SourceTime::from_ms(999.0)), Some((0.4, 0.8)));
+        assert_eq!(
+            track.position_at(SourceTime::from_ms(-5.0)),
+            Some((0.0, 0.0))
+        );
+        assert_eq!(
+            track.position_at(SourceTime::from_ms(999.0)),
+            Some((0.4, 0.8))
+        );
     }
 
     #[test]
@@ -150,7 +163,10 @@ mod tests {
     fn the_shape_is_the_most_recent_samples() {
         let track = CursorTrack::parse(FILE).unwrap();
         assert_eq!(track.shape_at(SourceTime::from_ms(50.0)), CursorShape::Text);
-        assert_eq!(track.shape_at(SourceTime::from_ms(250.0)), CursorShape::Pointer);
+        assert_eq!(
+            track.shape_at(SourceTime::from_ms(250.0)),
+            CursorShape::Pointer
+        );
     }
 
     #[test]

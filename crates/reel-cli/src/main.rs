@@ -50,7 +50,9 @@ fn convert(args: &[String]) -> Result<(), String> {
             "--force" => force = true,
             "--source-duration-ms" => {
                 let value = iter.next().ok_or_else(|| USAGE.to_string())?;
-                let ms: f64 = value.parse().map_err(|_| format!("Not a number of milliseconds: {value}"))?;
+                let ms: f64 = value
+                    .parse()
+                    .map_err(|_| format!("Not a number of milliseconds: {value}"))?;
                 source_duration = Some(Micros::from_ms(ms));
             }
             other if other.starts_with("--") => return Err(USAGE.to_string()),
@@ -63,12 +65,20 @@ fn convert(args: &[String]) -> Result<(), String> {
         _ => return Err(USAGE.to_string()),
     };
     if output.exists() && !force {
-        return Err(format!("{} already exists. Use --force to overwrite it.", output.display()));
+        return Err(format!(
+            "{} already exists. Use --force to overwrite it.",
+            output.display()
+        ));
     }
 
-    let text = std::fs::read_to_string(&input).map_err(|error| format!("Couldn't read {}: {error}", input.display()))?;
-    let options = ImportOptions { source_duration, find_sidecars: true };
-    let imported = recordly::import(&text, options).map_err(|error| format!("{}: {error}", input.display()))?;
+    let text = std::fs::read_to_string(&input)
+        .map_err(|error| format!("Couldn't read {}: {error}", input.display()))?;
+    let options = ImportOptions {
+        source_duration,
+        find_sidecars: true,
+    };
+    let imported = recordly::import(&text, options)
+        .map_err(|error| format!("{}: {error}", input.display()))?;
     for warning in &imported.warnings {
         eprintln!("Warning: {warning}");
     }
@@ -84,25 +94,41 @@ fn convert(args: &[String]) -> Result<(), String> {
 }
 
 fn absolute_folder(output: &Path) -> Option<PathBuf> {
-    let folder = output.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let folder = output
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     std::fs::canonicalize(folder).ok()
 }
 
 /// Reads a project of either kind, along with the folder its relative paths start from.
 #[allow(dead_code)]
 fn load_project(path: &Path) -> Result<(Project, Option<PathBuf>), String> {
-    let text = std::fs::read_to_string(path).map_err(|error| format!("Couldn't read {}: {error}", path.display()))?;
-    let is_recordly = path.extension().is_some_and(|ext| ext == "recordly" || ext == "openscreen");
-    let folder = path.parent().filter(|parent| !parent.as_os_str().is_empty()).map(Path::to_path_buf);
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| format!("Couldn't read {}: {error}", path.display()))?;
+    let is_recordly = path
+        .extension()
+        .is_some_and(|ext| ext == "recordly" || ext == "openscreen");
+    let folder = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(Path::to_path_buf);
     if is_recordly {
-        let imported = recordly::import(&text, ImportOptions { source_duration: None, find_sidecars: true })
-            .map_err(|error| format!("{}: {error}", path.display()))?;
+        let imported = recordly::import(
+            &text,
+            ImportOptions {
+                source_duration: None,
+                find_sidecars: true,
+            },
+        )
+        .map_err(|error| format!("{}: {error}", path.display()))?;
         for warning in &imported.warnings {
             eprintln!("Warning: {warning}");
         }
         Ok((imported.project, folder))
     } else {
-        let project = format::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
+        let project =
+            format::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
         Ok((project, folder))
     }
 }
@@ -112,7 +138,9 @@ fn render(args: &[String]) -> Result<(), String> {
     use reel_render::export::{Scene, export_mp4};
     let (positional, fps) = match args {
         [a, b, flag, value] if flag == "--fps" => {
-            let fps: u32 = value.parse().map_err(|_| format!("Not a frame rate: {value}"))?;
+            let fps: u32 = value
+                .parse()
+                .map_err(|_| format!("Not a frame rate: {value}"))?;
             ([a, b], Some(fps))
         }
         [a, b] => ([a, b], None),
@@ -150,7 +178,10 @@ fn render(args: &[String]) -> Result<(), String> {
 
 #[cfg(not(target_os = "macos"))]
 fn render(_args: &[String]) -> Result<(), String> {
-    Err("Rendering isn't available on this OS yet. See Milestones 11 and 12 in BUILD_PLAN.md.".to_string())
+    Err(
+        "Rendering isn't available on this OS yet. See Milestones 11 and 12 in BUILD_PLAN.md."
+            .to_string(),
+    )
 }
 
 #[cfg(target_os = "macos")]
@@ -162,21 +193,31 @@ fn frame(args: &[String]) -> Result<(), String> {
     if flag != "--at-ms" {
         return Err(USAGE.to_string());
     }
-    let ms: f64 = ms.parse().map_err(|_| format!("Not a number of milliseconds: {ms}"))?;
+    let ms: f64 = ms
+        .parse()
+        .map_err(|_| format!("Not a number of milliseconds: {ms}"))?;
     let (project, folder) = load_project(Path::new(input))?;
     let scene = Scene::new(project, folder.as_deref()).map_err(|error| error.to_string())?;
-    let pixels = render_still(&scene, TimelineTime::from_ms(ms)).map_err(|error| error.to_string())?;
-    let file = std::fs::File::create(output).map_err(|error| format!("Couldn't write {output}: {error}"))?;
-    let mut encoder = png::Encoder::new(std::io::BufWriter::new(file), scene.stage.0, scene.stage.1);
+    let pixels =
+        render_still(&scene, TimelineTime::from_ms(ms)).map_err(|error| error.to_string())?;
+    let file = std::fs::File::create(output)
+        .map_err(|error| format!("Couldn't write {output}: {error}"))?;
+    let mut encoder =
+        png::Encoder::new(std::io::BufWriter::new(file), scene.stage.0, scene.stage.1);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
-    writer.write_image_data(&pixels).map_err(|error| error.to_string())?;
+    writer
+        .write_image_data(&pixels)
+        .map_err(|error| error.to_string())?;
     println!("Wrote {output}");
     Ok(())
 }
 
 #[cfg(not(target_os = "macos"))]
 fn frame(_args: &[String]) -> Result<(), String> {
-    Err("Rendering isn't available on this OS yet. See Milestones 11 and 12 in BUILD_PLAN.md.".to_string())
+    Err(
+        "Rendering isn't available on this OS yet. See Milestones 11 and 12 in BUILD_PLAN.md."
+            .to_string(),
+    )
 }

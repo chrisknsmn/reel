@@ -9,19 +9,25 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2_av_foundation::{
-    AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus, AVFileTypeMPEG4,
-    AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey, AVVideoCodecTypeH264,
-    AVVideoColorPrimariesKey, AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPropertiesKey,
-    AVVideoCompressionPropertiesKey, AVVideoHeightKey, AVVideoMaxKeyFrameIntervalKey, AVVideoTransferFunctionKey,
-    AVVideoTransferFunction_ITU_R_709_2, AVVideoWidthKey, AVVideoYCbCrMatrixKey, AVVideoYCbCrMatrix_ITU_R_709_2,
+    AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus,
+    AVFileTypeMPEG4, AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey,
+    AVVideoCodecTypeH264, AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPrimariesKey,
+    AVVideoColorPropertiesKey, AVVideoCompressionPropertiesKey, AVVideoHeightKey,
+    AVVideoMaxKeyFrameIntervalKey, AVVideoTransferFunction_ITU_R_709_2, AVVideoTransferFunctionKey,
+    AVVideoWidthKey, AVVideoYCbCrMatrix_ITU_R_709_2, AVVideoYCbCrMatrixKey,
 };
-use objc2_core_audio_types::{AudioStreamBasicDescription, kAudioFormatFlagIsPacked, kAudioFormatFlagIsSignedInteger};
+use objc2_core_audio_types::{
+    AudioStreamBasicDescription, kAudioFormatFlagIsPacked, kAudioFormatFlagIsSignedInteger,
+};
 use objc2_core_foundation::CFRetained;
 use objc2_core_media::{
-    CMAudioFormatDescription, CMAudioFormatDescriptionCreate, CMAudioSampleBufferCreateReadyWithPacketDescriptions,
-    CMBlockBuffer, CMFormatDescription, CMSampleBuffer, CMTime, kCMBlockBufferAssureMemoryNowFlag,
+    CMAudioFormatDescription, CMAudioFormatDescriptionCreate,
+    CMAudioSampleBufferCreateReadyWithPacketDescriptions, CMBlockBuffer, CMFormatDescription,
+    CMSampleBuffer, CMTime, kCMBlockBufferAssureMemoryNowFlag,
 };
-use objc2_core_video::{CVPixelBuffer, CVPixelBufferPool, kCVPixelFormatType_32BGRA, kCVReturnSuccess};
+use objc2_core_video::{
+    CVPixelBuffer, CVPixelBufferPool, kCVPixelFormatType_32BGRA, kCVReturnSuccess,
+};
 use objc2_foundation::{NSNumber, NSString};
 
 use crate::mix::{CHANNELS, SAMPLE_RATE};
@@ -66,7 +72,9 @@ impl Encoder {
     /// Returns an error if the writer won't start, such as when the folder can't be written.
     pub fn create(path: &Path, settings: EncoderSettings) -> Result<Self, MediaError> {
         if path.exists() {
-            std::fs::remove_file(path).map_err(|error| MediaError(format!("{} can't be replaced: {error}", path.display())))?;
+            std::fs::remove_file(path).map_err(|error| {
+                MediaError(format!("{} can't be replaced: {error}", path.display()))
+            })?;
         }
         // SAFETY: documented AVFoundation calls in their documented order. Every dictionary holds the
         // key and value types documented for it, and the constants always exist.
@@ -81,7 +89,9 @@ impl Encoder {
             let video = Self::video_input(&settings);
             video.setExpectsMediaDataInRealTime(false);
             if !writer.canAddInput(&video) {
-                return Err(MediaError("The encoder doesn't accept these video settings.".to_string()));
+                return Err(MediaError(
+                    "The encoder doesn't accept these video settings.".to_string(),
+                ));
             }
             writer.addInput(&video);
 
@@ -104,7 +114,9 @@ impl Encoder {
                 let input = Self::audio_input();
                 input.setExpectsMediaDataInRealTime(false);
                 if !writer.canAddInput(&input) {
-                    return Err(MediaError("The encoder doesn't accept these audio settings.".to_string()));
+                    return Err(MediaError(
+                        "The encoder doesn't accept these audio settings.".to_string(),
+                    ));
                 }
                 writer.addInput(&input);
                 (Some(input), Some(pcm_format()?))
@@ -115,7 +127,9 @@ impl Encoder {
             if !writer.startWriting() {
                 return Err(MediaError(format!(
                     "The encoder wouldn't start: {}",
-                    writer.error().map_or_else(|| "no reason given".to_string(), |error| error.to_string())
+                    writer
+                        .error()
+                        .map_or_else(|| "no reason given".to_string(), |error| error.to_string())
                 )));
             }
             writer.startSessionAtSourceTime(CMTime::new(0, settings.fps as i32));
@@ -145,21 +159,41 @@ impl Encoder {
             let keyframes = NSNumber::new_u32(settings.keyframe_interval);
             let compression = dictionary(&[
                 (AVVideoAverageBitRateKey.expect("exists"), bitrate.as_ref()),
-                (AVVideoMaxKeyFrameIntervalKey.expect("exists"), keyframes.as_ref()),
+                (
+                    AVVideoMaxKeyFrameIntervalKey.expect("exists"),
+                    keyframes.as_ref(),
+                ),
             ]);
             // BT.709, tagged so players show the colours as they were composited (§39).
             let color = dictionary(&[
-                (AVVideoColorPrimariesKey.expect("exists"), AVVideoColorPrimaries_ITU_R_709_2.expect("exists").as_ref()),
-                (AVVideoTransferFunctionKey.expect("exists"), AVVideoTransferFunction_ITU_R_709_2.expect("exists").as_ref()),
-                (AVVideoYCbCrMatrixKey.expect("exists"), AVVideoYCbCrMatrix_ITU_R_709_2.expect("exists").as_ref()),
+                (
+                    AVVideoColorPrimariesKey.expect("exists"),
+                    AVVideoColorPrimaries_ITU_R_709_2.expect("exists").as_ref(),
+                ),
+                (
+                    AVVideoTransferFunctionKey.expect("exists"),
+                    AVVideoTransferFunction_ITU_R_709_2
+                        .expect("exists")
+                        .as_ref(),
+                ),
+                (
+                    AVVideoYCbCrMatrixKey.expect("exists"),
+                    AVVideoYCbCrMatrix_ITU_R_709_2.expect("exists").as_ref(),
+                ),
             ]);
             let width = NSNumber::new_u32(settings.width);
             let height = NSNumber::new_u32(settings.height);
             let output = dictionary(&[
-                (AVVideoCodecKey.expect("exists"), AVVideoCodecTypeH264.expect("exists").as_ref()),
+                (
+                    AVVideoCodecKey.expect("exists"),
+                    AVVideoCodecTypeH264.expect("exists").as_ref(),
+                ),
                 (AVVideoWidthKey.expect("exists"), width.as_ref()),
                 (AVVideoHeightKey.expect("exists"), height.as_ref()),
-                (AVVideoCompressionPropertiesKey.expect("exists"), compression.as_ref()),
+                (
+                    AVVideoCompressionPropertiesKey.expect("exists"),
+                    compression.as_ref(),
+                ),
                 (AVVideoColorPropertiesKey.expect("exists"), color.as_ref()),
             ]);
             AVAssetWriterInput::assetWriterInputWithMediaType_outputSettings(
@@ -179,7 +213,10 @@ impl Encoder {
             let output = dictionary(&[
                 (&NSString::from_str("AVFormatIDKey"), format.as_ref()),
                 (&NSString::from_str("AVSampleRateKey"), rate.as_ref()),
-                (&NSString::from_str("AVNumberOfChannelsKey"), channels.as_ref()),
+                (
+                    &NSString::from_str("AVNumberOfChannelsKey"),
+                    channels.as_ref(),
+                ),
                 (&NSString::from_str("AVEncoderBitRateKey"), bitrate.as_ref()),
             ]);
             AVAssetWriterInput::assetWriterInputWithMediaType_outputSettings(
@@ -196,11 +233,16 @@ impl Encoder {
     pub fn next_buffer(&self) -> Result<CFRetained<CVPixelBuffer>, MediaError> {
         let mut raw: *mut CVPixelBuffer = null_mut();
         // SAFETY: the pool is live, and the out pointer is valid for the call.
-        let status = unsafe { CVPixelBufferPool::create_pixel_buffer(None, &self.pool, NonNull::from(&mut raw)) };
+        let status = unsafe {
+            CVPixelBufferPool::create_pixel_buffer(None, &self.pool, NonNull::from(&mut raw))
+        };
         if status != kCVReturnSuccess {
-            return Err(MediaError(format!("The encoder has no free frame buffers (error {status}).")));
+            return Err(MediaError(format!(
+                "The encoder has no free frame buffers (error {status})."
+            )));
         }
-        let buffer = NonNull::new(raw).ok_or_else(|| MediaError("The encoder gave an empty frame buffer.".to_string()))?;
+        let buffer = NonNull::new(raw)
+            .ok_or_else(|| MediaError("The encoder gave an empty frame buffer.".to_string()))?;
         // SAFETY: the pool returned this with a +1 retain count, which this takes over.
         Ok(unsafe { CFRetained::from_raw(buffer) })
     }
@@ -235,7 +277,10 @@ impl Encoder {
         self.wait_for(&self.video)?;
         let pts = CMTime::new_at(self.frames, self.fps);
         // SAFETY: the buffer is finished with, since the caller has waited for the GPU.
-        let accepted = unsafe { self.adaptor.appendPixelBuffer_withPresentationTime(buffer, pts) };
+        let accepted = unsafe {
+            self.adaptor
+                .appendPixelBuffer_withPresentationTime(buffer, pts)
+        };
         if !accepted {
             return Err(self.failure());
         }
@@ -274,7 +319,9 @@ impl Encoder {
                 NonNull::from(&mut block),
             );
             let block = NonNull::new(block).filter(|_| status == 0).ok_or_else(|| {
-                MediaError(format!("Couldn't make room for the sound (error {status})."))
+                MediaError(format!(
+                    "Couldn't make room for the sound (error {status})."
+                ))
             })?;
             let block: CFRetained<CMBlockBuffer> = CFRetained::from_raw(block);
             let status = CMBlockBuffer::replace_data_bytes(
@@ -284,7 +331,9 @@ impl Encoder {
                 bytes,
             );
             if status != 0 {
-                return Err(MediaError(format!("Couldn't copy the sound (error {status}).")));
+                return Err(MediaError(format!(
+                    "Couldn't copy the sound (error {status})."
+                )));
             }
             let description: &CMFormatDescription = format;
             let mut sample: *mut CMSampleBuffer = null_mut();
@@ -297,9 +346,11 @@ impl Encoder {
                 null(),
                 NonNull::from(&mut sample),
             );
-            let sample = NonNull::new(sample).filter(|_| status == 0).ok_or_else(|| {
-                MediaError(format!("Couldn't package the sound (error {status})."))
-            })?;
+            let sample = NonNull::new(sample)
+                .filter(|_| status == 0)
+                .ok_or_else(|| {
+                    MediaError(format!("Couldn't package the sound (error {status})."))
+                })?;
             let sample: CFRetained<CMSampleBuffer> = CFRetained::from_raw(sample);
             if !input.appendSampleBuffer(&sample) {
                 return Err(self.failure());
@@ -320,7 +371,8 @@ impl Encoder {
             if let Some(audio) = &self.audio {
                 audio.markAsFinished();
             }
-            self.writer.endSessionAtSourceTime(CMTime::new_at(self.frames, self.fps));
+            self.writer
+                .endSessionAtSourceTime(CMTime::new_at(self.frames, self.fps));
             // This finishes on its own queue, then calls back. Until then, the file isn't complete.
             let done = Arc::new(AtomicBool::new(false));
             let flag = done.clone();
@@ -399,9 +451,13 @@ fn pcm_format() -> Result<CFRetained<CMAudioFormatDescription>, MediaError> {
             None,
             NonNull::from(&mut raw),
         );
-        let raw = NonNull::new(raw.cast_mut()).filter(|_| status == 0).ok_or_else(|| {
-            MediaError(format!("Couldn't describe the sound format (error {status})."))
-        })?;
+        let raw = NonNull::new(raw.cast_mut())
+            .filter(|_| status == 0)
+            .ok_or_else(|| {
+                MediaError(format!(
+                    "Couldn't describe the sound format (error {status})."
+                ))
+            })?;
         Ok(CFRetained::from_raw(raw))
     }
 }

@@ -9,6 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+cpal.workspace = true
 reel-core.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]

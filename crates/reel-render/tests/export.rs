@@ -54,8 +54,12 @@ fn make_video(gpu: &Headless, path: &Path) {
         let level = level_at(frame / i64::from(FPS));
         let buffer = encoder.next_buffer().unwrap();
         let target = cache.wrap_target(&buffer, SIZE);
-        let view = target.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut commands = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let view = target
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut commands = gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         {
             let _pass = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
@@ -64,7 +68,12 @@ fn make_video(gpu: &Headless, path: &Path) {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: level, g: level, b: level, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: level,
+                            g: level,
+                            b: level,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -130,14 +139,34 @@ fn the_decoder_finds_the_right_frame_going_forward_and_back() {
     make_video(&gpu, &video);
     let mut decoder = reel_media::macos::Decoder::open(&video).unwrap();
     let pts_at = |decoder: &mut reel_media::macos::Decoder, ms: f64| {
-        decoder.frame_at(SourceTime::from_ms(ms)).unwrap().unwrap().pts
+        decoder
+            .frame_at(SourceTime::from_ms(ms))
+            .unwrap()
+            .unwrap()
+            .pts
     };
     assert_eq!(pts_at(&mut decoder, 0.0), SourceTime::ZERO);
-    assert_eq!(pts_at(&mut decoder, 450.0), SourceTime::from_ms(400.0), "holds the frame in between");
+    assert_eq!(
+        pts_at(&mut decoder, 450.0),
+        SourceTime::from_ms(400.0),
+        "holds the frame in between"
+    );
     assert_eq!(pts_at(&mut decoder, 500.0), SourceTime::from_ms(500.0));
-    assert_eq!(pts_at(&mut decoder, 5000.0), SourceTime::from_ms(5000.0), "a long jump forward");
-    assert_eq!(pts_at(&mut decoder, 1000.0), SourceTime::from_ms(1000.0), "a jump back");
-    assert_eq!(pts_at(&mut decoder, 99_000.0), SourceTime::from_ms(7900.0), "past the end holds the last frame");
+    assert_eq!(
+        pts_at(&mut decoder, 5000.0),
+        SourceTime::from_ms(5000.0),
+        "a long jump forward"
+    );
+    assert_eq!(
+        pts_at(&mut decoder, 1000.0),
+        SourceTime::from_ms(1000.0),
+        "a jump back"
+    );
+    assert_eq!(
+        pts_at(&mut decoder, 99_000.0),
+        SourceTime::from_ms(7900.0),
+        "past the end holds the last frame"
+    );
 }
 
 #[test]
@@ -152,7 +181,11 @@ fn an_export_is_the_right_length_and_leaves_one_file() {
     let scene = Scene::new(project_for(&video), None).unwrap();
     let report = export_mp4(&scene, &output, |_, _| true).unwrap();
     assert_eq!(report.frames, 80);
-    assert_eq!(files_in(output_folder.path()), ["out.mp4"], "no temporary files left behind");
+    assert_eq!(
+        files_in(output_folder.path()),
+        ["out.mp4"],
+        "no temporary files left behind"
+    );
 
     let info = probe(&output).unwrap();
     assert_eq!((info.width, info.height), SIZE);
@@ -172,7 +205,11 @@ fn cancelling_leaves_nothing_behind() {
     let scene = Scene::new(project_for(&video), None).unwrap();
     let result = export_mp4(&scene, &output, |done, _| done < 20);
     assert!(result.is_err());
-    assert!(files_in(output_folder.path()).is_empty(), "{:?}", files_in(output_folder.path()));
+    assert!(
+        files_in(output_folder.path()).is_empty(),
+        "{:?}",
+        files_in(output_folder.path())
+    );
 }
 
 #[test]
@@ -185,14 +222,49 @@ fn an_export_shows_the_right_footage_after_moves_cuts_and_speed_changes() {
     // Three clips of the 8 second video: 0-2 s, 2-4 s at 2×, and 4-8 s moved to the front.
     let mut project = project_for(&video);
     let at = TimelineTime::from_ms;
-    project.timeline.apply(&Edit::SplitClip { at: at(2000.0) }).unwrap();
-    project.timeline.apply(&Edit::SplitClip { at: at(4000.0) }).unwrap();
-    let ids: Vec<_> = project.timeline.clips.iter().map(|clip| clip.id.clone()).collect();
-    project.timeline.apply(&Edit::ReorderClip { id: ids[2].clone(), to_index: 0 }).unwrap();
-    project.timeline.apply(&Edit::SetClipSpeed { id: ids[1].clone(), speed: 2.0 }).unwrap();
+    project
+        .timeline
+        .apply(&Edit::SplitClip { at: at(2000.0) })
+        .unwrap();
+    project
+        .timeline
+        .apply(&Edit::SplitClip { at: at(4000.0) })
+        .unwrap();
+    let ids: Vec<_> = project
+        .timeline
+        .clips
+        .iter()
+        .map(|clip| clip.id.clone())
+        .collect();
+    project
+        .timeline
+        .apply(&Edit::ReorderClip {
+            id: ids[2].clone(),
+            to_index: 0,
+        })
+        .unwrap();
+    project
+        .timeline
+        .apply(&Edit::SetClipSpeed {
+            id: ids[1].clone(),
+            speed: 2.0,
+        })
+        .unwrap();
     // A gap, which the export should skip.
-    let middle_start = project.timeline.clips.iter().find(|clip| clip.id == ids[0]).unwrap().start;
-    project.timeline.apply(&Edit::MoveClip { id: ids[1].clone(), to: middle_start + Micros::from_secs(4) }).unwrap();
+    let middle_start = project
+        .timeline
+        .clips
+        .iter()
+        .find(|clip| clip.id == ids[0])
+        .unwrap()
+        .start;
+    project
+        .timeline
+        .apply(&Edit::MoveClip {
+            id: ids[1].clone(),
+            to: middle_start + Micros::from_secs(4),
+        })
+        .unwrap();
 
     let output_folder = tempfile::tempdir().unwrap();
     let output = output_folder.path().join("out.mp4");

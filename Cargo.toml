@@ -20,6 +20,9 @@ reel-media = { path = "crates/reel-media", version = "0.1.0" }
 reel-motion = { path = "crates/reel-motion", version = "0.1.0" }
 reel-render = { path = "crates/reel-render", version = "0.1.0" }
 
+# Sound.
+cpal = "0.18"
+
 # Rendering.
 wgpu = "30"
 pollster = "0.4"

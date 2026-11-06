@@ -8,10 +8,20 @@ const P2160: f64 = 3840.0 * 2160.0;
 
 /// The bitrate for an MP4, in bits per second.
 #[must_use]
-pub fn video_bitrate(width: u32, height: u32, fps: u32, quality: ExportQuality, mode: EncodingMode) -> u32 {
+pub fn video_bitrate(
+    width: u32,
+    height: u32,
+    fps: u32,
+    quality: ExportQuality,
+    mode: EncodingMode,
+) -> u32 {
     let pixels = f64::from(width) * f64::from(height);
     let original = quality == ExportQuality::Source;
-    let (at_720, at_1080, at_4k) = if original { (8e6, 12e6, 45e6) } else { (5e6, 8e6, 35e6) };
+    let (at_720, at_1080, at_4k) = if original {
+        (8e6, 12e6, 45e6)
+    } else {
+        (5e6, 8e6, 35e6)
+    };
     let base = if pixels <= P720 {
         at_720
     } else if pixels <= P1080 {
@@ -48,9 +58,21 @@ mod tests {
     #[test]
     fn the_documented_example_comes_out_right() {
         // §39: 1080p30 Original Balanced is 9.6 Mbps, and 60 fps multiplies that by 1.414.
-        let at_30 = video_bitrate(1920, 1080, 30, ExportQuality::Source, EncodingMode::Balanced);
+        let at_30 = video_bitrate(
+            1920,
+            1080,
+            30,
+            ExportQuality::Source,
+            EncodingMode::Balanced,
+        );
         assert_eq!(at_30, 9_600_000);
-        let at_60 = video_bitrate(1920, 1080, 60, ExportQuality::Source, EncodingMode::Balanced);
+        let at_60 = video_bitrate(
+            1920,
+            1080,
+            60,
+            ExportQuality::Source,
+            EncodingMode::Balanced,
+        );
         assert!((f64::from(at_60) / f64::from(at_30) - std::f64::consts::SQRT_2).abs() < 0.001);
     }
 
@@ -67,7 +89,10 @@ mod tests {
 
     #[test]
     fn it_never_goes_below_the_floor() {
-        assert_eq!(video_bitrate(320, 180, 15, ExportQuality::Medium, EncodingMode::Fast), 2_500_000);
+        assert_eq!(
+            video_bitrate(320, 180, 15, ExportQuality::Medium, EncodingMode::Fast),
+            2_500_000
+        );
         assert!(video_bitrate(16, 16, 1, ExportQuality::Medium, EncodingMode::Fast) >= 2_000_000);
     }
 
@@ -75,7 +100,10 @@ mod tests {
     fn low_frame_rates_get_no_discount() {
         let quality = ExportQuality::Source;
         let mode = EncodingMode::Balanced;
-        assert_eq!(video_bitrate(1920, 1080, 15, quality, mode), video_bitrate(1920, 1080, 30, quality, mode));
+        assert_eq!(
+            video_bitrate(1920, 1080, 15, quality, mode),
+            video_bitrate(1920, 1080, 30, quality, mode)
+        );
     }
 
     #[test]
