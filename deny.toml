@@ -1,0 +1,46 @@
+# Dependency policy. Run with: cargo deny check
+
+[advisories]
+version = 2
+yanked = "deny"
+# Each of these only reaches us through Dioxus, and none has a safe upgrade. Review on every Dioxus upgrade.
+ignore = [
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error is unmaintained, via the gtk3-rs crates dioxus-desktop uses on Linux" },
+    { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained, via dioxus-desktop's image dependencies" },
+    { id = "RUSTSEC-2025-0057", reason = "fxhash is unmaintained, via wry" },
+]
+
+[licenses]
+version = 2
+# Reel's own crates are AGPL-3.0-only and unpublished, so this list only covers dependencies.
+private = { ignore = true }
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "NCSA",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[bans]
+# The Dioxus and GTK trees bring duplicates that we don't control.
+multiple-versions = "allow"
+wildcards = "deny"
+deny = [
+    { crate = "mp4", reason = "Avoided in BUILD_PLAN.md: no release since 2023" },
+    { crate = "rdev", reason = "Avoided in BUILD_PLAN.md: no release since 2023" },
+    # dioxus =0.7.9 only asks for ^0.7.9 of these, so `cargo update` would quietly move them.
+    { crate = "dioxus-core:>0.7.9", reason = "Dioxus is pinned to 0.7.9. Move this ban when upgrading deliberately." },
+    { crate = "dioxus-desktop:>0.7.9", reason = "Dioxus is pinned to 0.7.9. Move this ban when upgrading deliberately." },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
