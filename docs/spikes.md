@@ -112,6 +112,54 @@ Also from reading the code. wry's own wgpu example turns off `WS_CLIPCHILDREN` t
 - **Transparency uses a private API (10.9).** wry sets `drawsBackground` on the webview's configuration through key-value coding. That rules out the Mac App Store, which the plan doesn't target, so check it doesn't get in the way of notarisation.
 - **Vendored Popover and Dialog work here.** Their inline scripts run, and CSS anchor positioning works on macOS 26.6. T5 still needs to test the rest.
 
+## T2: Decode
+
+**T2 passes on the reference Mac, and D5 is settled: Reel uses native APIs on macOS.** Windows and Linux choose their own decoder behind the same interface in M11 and M12, with an LGPL FFmpeg build as the default there.
+
+`spikes/t2-decode` decodes 4K60 H.264 into wgpu textures, headless. It compares AVFoundation with FFmpeg's library using VideoToolbox. Both produce the same hardware-backed `CVPixelBuffer`, so the rest of the path is identical. Tested on the M4 Max, with three clips.
+
+### Results
+
+"Zero-copy" wraps the frame's IOSurface as a texture. "Upload" copies the planes with `write_texture`, which is the portable path.
+
+| Clip | Decoder | Decode speed | Real-time 4K60 (10 s) | Seek, median | Seek, worst |
+|---|---|---|---|---|---|
+| 43 Mbps, keyframe every 1 s | AVFoundation | 663 fps | 0 dropped, 0 late | 99 ms | 132 ms |
+| | FFmpeg + VideoToolbox | 152 fps | 0 dropped, 0 late | 236 ms | 430 ms |
+| 35 Mbps, keyframe every 4 s | AVFoundation | 680 fps | 0 dropped, 0 late | 259 ms | 399 ms |
+| | FFmpeg + VideoToolbox | 161 fps | 0 dropped, 0 late | 934 ms | 1,499 ms |
+| 122 Mbps of noise, keyframe every 1 s | AVFoundation | 428 fps | 0 dropped, 0 late | 108 ms | 191 ms |
+| | FFmpeg + VideoToolbox | 102 fps | 0 dropped, 0 late | 252 ms | 595 ms |
+
+In real time at 4K60, on either decoder:
+
+| Path | CPU | Work per frame, median | Work per frame, worst |
+|---|---|---|---|
+| Zero-copy | 0.09 cores | 1.5 ms | 6.4 ms |
+| Upload | 0.23 cores | 4.3 ms | 9.5 ms |
+
+- **Correctness:** all 240 seeks landed on the exact frame. Pixels that reached the GPU match a reference from the `ffmpeg` CLI at 52 to 55 dB on luma. The neighbouring frames score about 20 dB, so it is the right frame. Overall PSNR is 33 dB, because this saturated test pattern shows up differences in chroma upsampling. Every path scored the same.
+- **Software decoding:** FFmpeg on one thread managed 118 to 131 fps on normal clips and 43 fps on the noise clip, so it's only a fallback.
+
+### Why native on macOS
+
+- **Speed:** about four times the decode speed and two to four times faster seeks, which is what scrubbing feels like.
+- **Packaging:** nothing to bundle or sign, and no LGPL relinking duties. Homebrew's FFmpeg is a GPL build, so shipping FFmpeg would have needed a custom build anyway.
+- **Encoding:** step 3.8 can use AVAssetWriter, which also writes the fragmented MP4 that step 4.4 needs.
+
+### What this costs
+
+- **WebM import needs another route on macOS.** AVFoundation doesn't read WebM, and the plan keeps WebM import. Leave it out until FFmpeg is added for that alone, or until someone asks for it.
+- **Two or three decoders instead of one.** `reel-media` needs a decoder interface with a backend per OS, so Windows and Linux aren't shared with macOS.
+- **Keyframe spacing matters.** Seeks scale with it, so step 4.3 should record with a keyframe every second or so.
+
+### Not tested
+
+- **Slower Macs.** Only the M4 Max was available, and the plan's reference is whichever Mac this is. Step 10.9 builds for x64 too, and Intel Macs may behave very differently.
+- **HEVC, or other non-H.264 imports.**
+- **Variable frame rate.** Screen recordings can be, and this test's clips aren't.
+- **Rendering to a window.** T1 covered that with a simple uploader, and step 3.1 joins them up.
+
 ## Running test apps on macOS
 
 These cost time during T1, and will apply to later tests too.

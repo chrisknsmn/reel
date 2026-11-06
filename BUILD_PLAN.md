@@ -95,7 +95,7 @@ All of these were on crates.io with a release in the last 18 months when checked
 
 Each decision has a recommended default, so work can start. Change any of them before the milestone listed.
 
-**Settled on 6 Nov 2026:** D1 (AGPL-3.0-only), D2 and D3, each at its recommended default.
+**Settled on 6 Nov 2026:** D1 (AGPL-3.0-only), D2 and D3, each at its recommended default. D5 was settled by T2, against the default below: native APIs on macOS, with an LGPL FFmpeg build as the default for Windows and Linux (`docs/spikes.md`).
 
 | # | Decision | Recommended default | Needed by |
 |---|---|---|---|
@@ -158,7 +158,7 @@ Accepting D3 removes all of this from scope.
 - [ ] **T1: Layering.** Play video in a wgpu surface under a transparent Dioxus webview, using `Config::with_as_child_window`. Open a Rust/UI popover and dialog over the video. Test on macOS, Windows, X11 and Wayland.
   - **Pass:** smooth 1080p60 playback, DOM controls drawn over the video and receiving clicks, and alignment that holds through window resizing.
   - **Status:** macOS passes, using `spikes/t1-layering` (`docs/spikes.md`). Still to run: Windows, X11 and Wayland, plus a hand check on the Mac with a real mouse.
-- [ ] **T2: Decode.** Hardware-decode H.264 up to 4K60 into a wgpu texture, and compare FFmpeg with native APIs (D5).
+- [x] **T2: Decode.** Hardware-decode H.264 up to 4K60 into a wgpu texture, and compare FFmpeg with native APIs (D5).
   - **Pass:** real-time playback at 4K60 on the reference Mac, with responsive seeking.
 - [ ] **T3: Launch bar window.** Build a small, transparent, always-on-top window that can be dragged between monitors and grows when a popover opens. Don't port Electron's full-screen mouse forwarding (§47).
   - **Pass:** no flicker on resize, clicks outside the bar reach other apps, and the window stays out of its own recordings.
