@@ -88,7 +88,7 @@ If the band looks bad by eye, M6.2 could try `presentsWithTransaction` on the la
 ### Not tested on macOS
 
 - **A real mouse.** Every click and drag was synthesised. They do go through AppKit, and the drags do enter its live-resize loop.
-- **Retina, or changing scale.** Both displays here are 1080p at 1×, so M6.2's DPI work starts without evidence.
+- **Retina, or changing scale.** The one display here is 1080p at 1×, so M6.2's DPI work starts without evidence.
 - **Other refresh rates.** Only 75 Hz was available.
 - **macOS below 26.6.** The plan's minimum is macOS 14. T5 and step 5.2 cover the known WebKit differences.
 - **Long sessions.** Each run lasts about a minute.
@@ -185,6 +185,41 @@ Steps 5.1 to 5.3 should use all of these:
 
 - **Near the top of the screen,** AppKit pushes the window down rather than let it grow past the top, which moved the bar by 83 px in the first run. The bar needs to open its popover downward there, or stay clear of the edge.
 - **A popover that is open makes the window's transparent areas clickable.** That matches Recordly, where an open popover makes the whole window clickable, and a click there should close the popover.
+
+## T4: Timeline speed
+
+**T4 passes on macOS: use DOM items.** They hold the display's full refresh rate with room to spare, so the timeline doesn't need a canvas or wgpu, and Rust/UI can be used all around it.
+
+`spikes/t4-timeline` keeps every item's state in Rust, so each change crosses the webview boundary. Each load ran for 5 seconds on the 75 Hz display, with Rust ticking at 60 Hz. Mouse moves went through AppKit at about 85 per second.
+
+| Load, with 500 items | Page paint rate | Missed refreshes | Latency, median | Latency, worst |
+|---|---|---|---|---|
+| DOM, playhead moving | 75.2 fps | 0 | 1 ms | 3 ms |
+| DOM, dragging an item while playing | 75.0 fps | 0 | 2 ms | 6 ms |
+| DOM, zoom moving all 500 while playing | 75.0 fps | 1 | 2 ms | 8 ms |
+| Canvas, playhead moving | 75.0 fps | 0 | 0 ms | 4 ms |
+| Canvas, dragging an item while playing | 75.0 fps | 0 | 0 ms | 1 ms |
+| Canvas, zoom moving all 500 while playing | 75.2 fps | 0 | 0 ms | 4 ms |
+
+Latency for a drag runs from the mouse move in JavaScript to the resulting change on the page. For the playhead, it runs from Rust's tick to the change on the page. Timers in WebKit only have about 1 ms of resolution.
+
+**Headroom:** at 2,000 items, the DOM's worst case was zoom, at 119,600 item changes per second. It missed 5 refreshes in 5 seconds, with a worst paint of 21 ms and playhead lag of 15 ms. That's four times the plan's count, in the worst case, and still usable.
+
+### Why it's this fast
+
+Dioxus desktop sends events with a synchronous XHR. JavaScript waits while Rust handles the event, and DOM changes follow straight away, which explains a round trip of about a millisecond between processes.
+
+This has a cost: **anything that blocks Rust's main thread freezes the page too**, because the page is waiting on it. Long work has to stay off that thread, which the plan already does for rendering and recording.
+
+### Rust's clock
+
+Pace ticks with `tokio::time::interval`, not `sleep`. A `sleep(16 ms)` loop only reached 50 ticks a second, and `interval` holds 60.
+
+### Not tested
+
+- **Real timeline items.** These have a text label each. Waveforms and handles will add weight, which is what the headroom is for.
+- **Video playing at the same time.** T1 showed a busy page doesn't disturb wgpu, but not this page specifically.
+- **Other webviews.** WebView2 and WebKitGTK may behave differently, and the synchronous XHR is one to watch.
 
 ## Running test apps on macOS
 
