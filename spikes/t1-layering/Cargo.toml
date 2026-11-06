@@ -1,0 +1,32 @@
+# Disposable test app for T1 in BUILD_PLAN.md. See README.md here, and docs/spikes.md for the results.
+#
+# It has its own workspace so wgpu stays out of Reel's lockfile and `cargo deny` until it's adopted.
+# Its Cargo.lock started as a copy of Reel's, so it tests the same Dioxus, wry and tao versions.
+[package]
+name = "t1-layering"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.92"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace]
+
+[dependencies]
+dioxus = { version = "=0.7.9", features = ["desktop", "router"] }
+icons = { version = "0.19", features = ["dioxus"] }
+png = "0.18"
+pollster = "0.4"
+serde_json = "1"
+strum = { version = "0.28", features = ["derive"] }
+tokio = { version = "1", features = ["time"] }
+tw_merge = "0.1"
+wgpu = "30"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

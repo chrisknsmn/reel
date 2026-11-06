@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestone 0 is done apart from the hand checks in step 0.4.
+- **Status:** Milestone 0 is done apart from the hand checks in step 0.4. In Milestone 1, T1 passes on macOS but hasn't been run on Windows or Linux.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -102,7 +102,7 @@ Each decision has a recommended default, so work can start. Change any of them b
 | D1 | **Licence:** stay AGPL-3.0 or aim for an independent implementation? Part 2 of the feature list closely paraphrases AGPL code, and Recordly's translations are AGPL too. | Stay AGPL unless you plan to ship closed source. If you do, get legal advice before using Part 2. | M0 |
 | D2 | **Platform order** | macOS, then Windows, then Linux | M0 |
 | D3 | **Scope:** accept the "Not carrying over" list below? | Yes | M0 |
-| D4 | **Wayland at launch?** Wry's layering example panics on Wayland. | Test it in M1, ship Linux after macOS and Windows | M1 |
+| D4 | **Wayland at launch?** Wry's layering example panics on Wayland, and its `build_as_child` only supports X11. Dioxus 0.7.9 also ignores `with_as_child_window` on all of Linux, so X11 needs a patch or a workaround too (`docs/spikes.md`). | Test it in M1, ship Linux after macOS and Windows | M1 |
 | D5 | **Media library:** FFmpeg or native APIs per OS? Recordly's `ffmpeg-static` is GPL-3.0-or-later. | An LGPL FFmpeg build through `ffmpeg-next`, so all three OSes share one pipeline. Settle it in test T2. | M1 |
 | D6 | **Project file** | A new `.reel` format, with one-way `.recordly` import | M2 |
 | D7 | **Recording retention:** Recordly silently deletes recordings after 14 days or beyond the newest 20 (§29). | Off by default, with an opt-in setting | M4 |
@@ -157,10 +157,12 @@ Accepting D3 removes all of this from scope.
 
 - [ ] **T1: Layering.** Play video in a wgpu surface under a transparent Dioxus webview, using `Config::with_as_child_window`. Open a Rust/UI popover and dialog over the video. Test on macOS, Windows, X11 and Wayland.
   - **Pass:** smooth 1080p60 playback, DOM controls drawn over the video and receiving clicks, and alignment that holds through window resizing.
+  - **Status:** macOS passes, using `spikes/t1-layering` (`docs/spikes.md`). Still to run: Windows, X11 and Wayland, plus a hand check on the Mac with a real mouse.
 - [ ] **T2: Decode.** Hardware-decode H.264 up to 4K60 into a wgpu texture, and compare FFmpeg with native APIs (D5).
   - **Pass:** real-time playback at 4K60 on the reference Mac, with responsive seeking.
 - [ ] **T3: Launch bar window.** Build a small, transparent, always-on-top window that can be dragged between monitors and grows when a popover opens. Don't port Electron's full-screen mouse forwarding (§47).
   - **Pass:** no flicker on resize, clicks outside the bar reach other apps, and the window stays out of its own recordings.
+  - **Also check:** whether the first click on the bar works while another app is active. T1 found that click is lost, and Dioxus doesn't expose wry's `with_accept_first_mouse`.
 - [ ] **T4: Timeline speed.** Build a timeline with 500 items and a moving playhead in Dioxus. Measure drag and playhead latency across the webview boundary. Compare DOM items with `<canvas>`.
   - **Pass:** a chosen approach that holds 60 fps while dragging and playing.
 - [ ] **T5: Rust/UI on real webviews.** Render every vendored component in WKWebView, WebView2 and WebKitGTK. Its own tests run only on Chromium, so list every failure. Also list each `wasm32`-only branch that those components use, since those do nothing on desktop.
@@ -264,7 +266,7 @@ Accepting D3 removes all of this from scope.
 **Goal:** a usable basic editor.
 
 - [ ] **6.1** Build the layout in §7: header, icon rail, settings panel, preview, timeline.
-- [ ] **6.2** Keep the wgpu surface aligned with the clear area in the webview through resizes and DPI changes.
+- [ ] **6.2** Keep the wgpu surface aligned with the clear area in the webview through resizes and DPI changes. Start from the settings that worked in T1 (`docs/spikes.md`). DPI changes are still untested.
 - [ ] **6.3** Build shared controls: a labelled slider with reset (§7), and a colour picker with swatches and hex, since Rust/UI has none.
 - [ ] **6.4** Change the other vendored components according to T5:
   - Focus trap in Dialog
@@ -343,7 +345,7 @@ Accepting D3 removes all of this from scope.
 - [ ] **10.6** Confirm network use is limited to what the user asks for, plus the update check (§51).
 - [ ] **10.7** Add diagnostics: recording and export logs, with pruning (§55).
 - [ ] **10.8** Generate the app icon set from `assets/logo.svg`, with padding, according to D9.
-- [ ] **10.9** Package a DMG for x64 and arm64, with hardened runtime, signing and notarisation (§53). Check the entitlements needed for the transparent window.
+- [ ] **10.9** Package a DMG for x64 and arm64, with hardened runtime, signing and notarisation (§53). Check the entitlements needed for the transparent window, and that wry's private `drawsBackground` setting doesn't get in the way of notarisation.
 - [ ] **10.10** Add auto-update with stable and experimental channels (§24).
 
 **Exit criteria**
