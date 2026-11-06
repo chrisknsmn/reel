@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** not started. The repo holds the feature list and the logo, with no app code and no commits.
+- **Status:** Milestone 0 in progress. See the open items there.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -95,6 +95,8 @@ All of these were on crates.io with a release in the last 18 months when checked
 
 Each decision has a recommended default, so work can start. Change any of them before the milestone listed.
 
+**Settled on 6 Nov 2026:** D1 (AGPL-3.0-only), D2 and D3, each at its recommended default.
+
 | # | Decision | Recommended default | Needed by |
 |---|---|---|---|
 | D1 | **Licence:** stay AGPL-3.0 or aim for an independent implementation? Part 2 of the feature list closely paraphrases AGPL code, and Recordly's translations are AGPL too. | Stay AGPL unless you plan to ship closed source. If you do, get legal advice before using Part 2. | M0 |
@@ -125,20 +127,20 @@ Accepting D3 removes all of this from scope.
 
 **Goal:** a clean repo, working builds, and measurements of Recordly to compare against.
 
-- [ ] **0.1** Settle D1, D2 and D3.
-- [ ] **0.2** Make the first commit: `.gitignore`, licence, feature list, this plan, logo.
-- [ ] **0.3** Correct the feature list:
+- [x] **0.1** Settle D1, D2 and D3.
+- [x] **0.2** Make the first commit: `.gitignore`, licence, feature list, this plan, logo. The first commit already held the plan, feature list and logo, so the `.gitignore` and licence follow it.
+- [x] **0.3** Correct the feature list:
   - No manual save on Windows or Linux (§20, §58)
   - Captions have no audio on native Windows recordings (§36, §58)
   - "blur 0–2" means zoom motion blur, and background blur is 0–8 (§45)
   - The Linux "bring window to front" looks unreachable (§3)
-  - Add shadcn, sonner, lucide and Tailwind 3 to §56
-- [ ] **0.4** Build and run Recordly on the Mac. Confirm by hand the §58 items that affect the plan, starting with the macOS mic loss.
-- [ ] **0.5** Record a baseline. Use Recordly's headless export (§55) on three sample projects: 1080p30, 1440p60, and 4K with webcam. Keep the output files and timings outside git.
-- [ ] **0.6** Create the Cargo workspace with the crates above. Pin the toolchain and turn on `rustfmt`, `clippy` and `cargo deny`.
+  - Add shadcn, sonner, the icon libraries and Tailwind 3 to §56. This plan first said lucide, but only `components.json` names it. Recordly really uses Phosphor and react-icons.
+- [ ] **0.4** Build and run Recordly on the Mac. Confirm by hand the §58 items that affect the plan, starting with the macOS mic loss. The checks are in `docs/recordly-checks.md`.
+- [ ] **0.5** Record a baseline. Use Recordly's headless export (§55) on three sample projects: 1080p30, 1440p60, and 4K with webcam. Keep the output files and timings outside git. `scripts/record-recordly-baseline.sh` regenerates them in `baseline/`.
+- [x] **0.6** Create the Cargo workspace with the crates above. Pin the toolchain and turn on `rustfmt`, `clippy` and `cargo deny`.
 - [ ] **0.7** Set up CI to build and test on macOS, Windows and Linux on every push.
-- [ ] **0.8** Install `dioxus-cli` and create `reel-app`. Pin Dioxus to an exact 0.7 version. Rust/UI itself pins `=0.7.9`, and 0.8 is still in alpha.
-- [ ] **0.9** Vendor Rust/UI:
+- [x] **0.8** Install `dioxus-cli` and create `reel-app`. Pin Dioxus to an exact 0.7 version. Rust/UI itself pins `=0.7.9`, and 0.8 is still in alpha. The pin only covers the top-level crate, so `Cargo.lock` holds the sub-crates at 0.7.9 and `deny.toml` enforces it.
+- [x] **0.9** Vendor Rust/UI:
   - Copy from `app_crates/registry/src/ui/` at a pinned commit. Don't use `ui-cli`, whose README still targets Leptos.
   - Start with Button, Card, Dialog, Alert Dialog, Dropdown Menu, Input, Label, Popover, Select, Separator, Skeleton, Slider, Switch, Tabs, Toggle Group, Toast, Tooltip, Progress, Spinner, Kbd, Scroll Area, Accordion and Context Menu.
   - Set up the Tailwind v4 build.
