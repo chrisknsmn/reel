@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestone 0 in progress. See the open items there.
+- **Status:** Milestone 0 is done apart from the hand checks in step 0.4.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -136,9 +136,9 @@ Accepting D3 removes all of this from scope.
   - The Linux "bring window to front" looks unreachable (§3)
   - Add shadcn, sonner, the icon libraries and Tailwind 3 to §56. This plan first said lucide, but only `components.json` names it. Recordly really uses Phosphor and react-icons.
 - [ ] **0.4** Build and run Recordly on the Mac. Confirm by hand the §58 items that affect the plan, starting with the macOS mic loss. The checks are in `docs/recordly-checks.md`.
-- [ ] **0.5** Record a baseline. Use Recordly's headless export (§55) on three sample projects: 1080p30, 1440p60, and 4K with webcam. Keep the output files and timings outside git. `scripts/record-recordly-baseline.sh` regenerates them in `baseline/`.
+- [x] **0.5** Record a baseline. Use Recordly's headless export (§55) on three sample projects: 1080p30, 1440p60, and 4K with webcam. Keep the output files and timings outside git. `scripts/record-recordly-baseline.sh` regenerates them in `baseline/`.
 - [x] **0.6** Create the Cargo workspace with the crates above. Pin the toolchain and turn on `rustfmt`, `clippy` and `cargo deny`.
-- [ ] **0.7** Set up CI to build and test on macOS, Windows and Linux on every push.
+- [x] **0.7** Set up CI to build and test on macOS, Windows and Linux on every push.
 - [x] **0.8** Install `dioxus-cli` and create `reel-app`. Pin Dioxus to an exact 0.7 version. Rust/UI itself pins `=0.7.9`, and 0.8 is still in alpha. The pin only covers the top-level crate, so `Cargo.lock` holds the sub-crates at 0.7.9 and `deny.toml` enforces it.
 - [x] **0.9** Vendor Rust/UI:
   - Copy from `app_crates/registry/src/ui/` at a pinned commit. Don't use `ui-cli`, whose README still targets Leptos.

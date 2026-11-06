@@ -61,7 +61,8 @@ run_project() { # name, width, height, fps, webcam JSON
 
     make_video "$video" "testsrc2=size=${w}x${h}:rate=$fps:duration=$duration" 1
     write_project "$project" "$video" "$webcam"
-    rm -f "$export" "$export.report.json"
+    # Each run needs its own log: `open` can fail with error -10810 on a leftover one.
+    rm -f "$export" "$export.report.json" "$out/logs/$name.log"
 
     echo "Exporting $name..."
     # Launch through `open` so macOS treats Recordly as the app asking for camera and mic access.
