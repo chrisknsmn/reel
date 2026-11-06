@@ -221,6 +221,38 @@ Pace ticks with `tokio::time::interval`, not `sleep`. A `sleep(16 ms)` loop only
 - **Video playing at the same time.** T1 showed a busy page doesn't disturb wgpu, but not this page specifically.
 - **Other webviews.** WebView2 and WebKitGTK may behave differently, and the synchronous XHR is one to watch.
 
+## T5: Rust/UI on real webviews
+
+**T5 has its list for WKWebView, on macOS 26.6. WebView2 and WebKitGTK haven't been run, so T5 stays open.** Nothing here threatens the plan: all 23 components render, in both themes, and most work as they should.
+
+`spikes/t5-components` puts every vendored component on one page and drives it with real clicks, right-clicks and keystrokes through AppKit. Of 33 checks, 27 passed.
+
+### What needs fixing
+
+| Component | Problem | When |
+|---|---|---|
+| Popover | Leaves 2 `document` listeners behind every time it's unmounted (10 became 20 after 5 remounts). It does still work after a remount. | Step 5.2 |
+| Popover | Depends on CSS anchor positioning, which older WebKit lacks. It works on macOS 26.6, but the plan's minimum is macOS 14. | Step 5.2 |
+| Dialog, Alert Dialog | Tab moves focus out of the dialog. There's no focus trap. | Step 6.4 |
+| Select | Arrow keys do nothing. | Step 6.4 |
+| Dropdown Menu | Arrow keys do nothing. | Step 6.4 |
+| Context Menu | `close_context_menu()` does nothing on desktop. **This is the only `wasm32`-only branch in any vendored component**, so nothing else silently does nothing. | Step 6.4 |
+| Switch | Has no change handler, so Rust can't read or control its value. | Step 6.4 |
+| Scroll Area | `ScrollBar` is decorative: an unpositioned bar that doesn't follow scrolling, drawn beside the real one. Leave it out, and rely on `ScrollAreaViewport`'s own scrollbar. | When used |
+| Card | `CardHeader` uses `@container`, so a card can't size itself to its content and text overflows. Give cards a width. | When used |
+
+The plan already had steps for most of these, and this adds the Switch, `ScrollBar` and Card items.
+
+### What works
+
+Button, Input, Label, Kbd, Slider, Tabs, Toggle Group, Accordion, Separator, Skeleton, Spinner, Progress and Toast all work. So do opening, choosing, clicking away and Escape on Select, Dropdown Menu, Context Menu, Popover, Dialog and Alert Dialog. A click on an Alert Dialog's backdrop leaves it open, as it should. There were no JavaScript errors.
+
+### Not checked
+
+- **Tooltip's hover.** A synthetic mouse move doesn't set `:hover` in WebKit. Its CSS rule is present, but it needs a hand check.
+- **macOS 14.** Apart from anchor positioning, the CSS these components use should be fine in Safari 17, going by published browser support rather than a test: `color-mix`, `oklch`, `@property`, `@layer`, `:has` and `@container`. Only `scrollbar-width` is newer, and it's harmless if ignored.
+- **Accessibility beyond keyboard focus,** which step 10.4 covers.
+
 ## Running test apps on macOS
 
 These cost time during T1, and will apply to later tests too.
@@ -231,3 +263,5 @@ These cost time during T1, and will apply to later tests too.
 - **Posted mouse events can drive a real live resize.** Call `postEvent:atStart:` from another thread, because the main thread stays inside AppKit's resize loop for the whole drag.
 - **Synthetic clicks can't take focus.** A click on a window that isn't key is lost, and macOS may refuse to give focus back to an app that gave it up, so T1's self-test flags such runs as inconclusive.
 - **`open -W` always exits 0.** Read the result from a report file instead.
+- **Check the screen isn't locked.** While it's locked, a window can't take focus, and captures come back blank at the wrong size, which can look like the app has broken. `ioreg -n Root -d1 | grep CGSSessionScreenIsLocked` tells you.
+- **Keep test windows on top.** Otherwise anyone working on the Mac takes focus away and clicks are lost.

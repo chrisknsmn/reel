@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestones 0 and 2 are done, apart from the hand checks in step 0.4. In Milestone 1, T1, T2, T3 and T4 pass on macOS, with T1 still to run on Windows and Linux, and T5 needs a final run.
+- **Status:** Milestones 0 and 2 are done, apart from the hand checks in step 0.4. In Milestone 1, T2, T3 and T4 pass, and T1 and T5 pass on macOS but haven't been run on Windows or Linux.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -167,6 +167,7 @@ Accepting D3 removes all of this from scope.
   - **Pass:** a chosen approach that holds 60 fps while dragging and playing.
 - [ ] **T5: Rust/UI on real webviews.** Render every vendored component in WKWebView, WebView2 and WebKitGTK. Its own tests run only on Chromium, so list every failure. Also list each `wasm32`-only branch that those components use, since those do nothing on desktop.
   - **Pass:** a complete list of what needs fixing.
+  - **Status:** done for WKWebView (`docs/spikes.md`). Still to run: WebView2 and WebKitGTK.
 
 **If a test fails**
 - **T1 fails on macOS or Windows:** stop and revisit the UI choice before M2.
@@ -273,6 +274,7 @@ Accepting D3 removes all of this from scope.
   - Arrow-key navigation in Dropdown Menu, Select and Context Menu (§52)
   - Action button on Toast (§21)
   - Light, Dark and System theme, stored in Rust settings (§22)
+  - A change handler on Switch, and a working `close_context_menu()`, the only `wasm32`-only branch in the vendored components
 - [ ] **6.5** Build the timeline from the T4 result: rows, ruler, zoom and pan, playhead, keyframe markers, hover ghosts (§14). Rust/UI has no timeline, and its Drag and Drop does nothing on desktop, so this is custom.
 - [ ] **6.6** Add clip editing: split, trim, move, speed, mute and delete, including from the keyboard (§15, §58). Clamp partly overlapping items on trim rather than deleting them, and add real reordering.
 - [ ] **6.7** Build transport controls (§17) and shortcuts with the rebind dialog (§23). Save, Save As and Open must work on every OS.

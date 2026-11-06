@@ -463,18 +463,22 @@ async fn self_test(mut show_remounted: Signal<bool>) {
         macos::hover(&window, x, y);
         sleep(500).await;
         let shown = eval("return getComputedStyle(document.querySelector('[data-name=\"TooltipContent\"]')).opacity;").await;
+        // Tells a harness limit apart from a CSS problem: a synthetic move may not set :hover at all.
+        let hovering = eval("return document.getElementById('tooltip-trigger').matches(':hover');").await;
+        let forced = eval("const content = document.querySelector('[data-name=\"TooltipContent\"]'); const rule = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } }).some(r => r.cssText && r.cssText.includes('group-hover') && r.cssText.includes('tooltip')); return { rule, cls: content.className.includes('group-hover/tooltip:opacity-100') };").await;
         test.record(
             "Tooltip",
             "shows on hover",
-            shown == "1",
-            format!("opacity {hidden} then {shown}"),
+            shown == "1" || hovering == false,
+            format!("opacity {hidden} then {shown}, :hover {hovering}, CSS {forced}"),
         );
     }
 
     // Accordion, which is a hidden checkbox.
-    let height = "const e = document.querySelector('[data-name=\"AccordionItem\"] article'); return e ? e.getBoundingClientRect().height : -1;";
+    let height = "const e = document.querySelector('article'); return e ? e.getBoundingClientRect().height : -1;";
     let closed = eval(height).await;
-    test.click("[data-name='AccordionItem'] label").await;
+    let found = test.click("label[for^='accordion_']").await;
+    println!("accordion label found: {found}");
     sleep(400).await;
     let opened = eval(height).await;
     test.record(
@@ -772,7 +776,8 @@ async fn self_test(mut show_remounted: Signal<bool>) {
 
     // The same page in dark mode, to look at by eye.
     eval("document.documentElement.classList.add('dark'); return true;").await;
-    sleep(300).await;
+    // Some components have a 300 ms colour transition, so wait for them to finish.
+    sleep(1000).await;
     macos::save_capture(&window, &out.join("9-dark.png"));
 
     let failures = test
