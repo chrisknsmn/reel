@@ -12,11 +12,19 @@ publish.workspace = true
 image.workspace = true
 pollster.workspace = true
 reel-core.workspace = true
+reel-media.workspace = true
 reel-motion.workspace = true
 wgpu.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-foundation = "0.3"
+objc2-core-video = "0.3"
+objc2-foundation = "0.3"
+objc2-metal = "0.3"
+
 [dev-dependencies]
 png.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

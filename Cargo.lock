@@ -4232,7 +4232,9 @@ version = "0.1.0"
 name = "reel-cli"
 version = "0.1.0"
 dependencies = [
+ "png 0.18.1",
  "reel-core",
+ "reel-render",
  "tempfile",
 ]
 
@@ -4250,13 +4252,14 @@ dependencies = [
 name = "reel-media"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "objc2",
  "objc2-av-foundation",
+ "objc2-core-audio-types",
  "objc2-core-foundation",
  "objc2-core-media",
  "objc2-core-video",
  "objc2-foundation",
- "objc2-metal",
  "reel-core",
  "tempfile",
 ]
@@ -4280,10 +4283,16 @@ name = "reel-render"
 version = "0.1.0"
 dependencies = [
  "image",
+ "objc2-core-foundation",
+ "objc2-core-video",
+ "objc2-foundation",
+ "objc2-metal",
  "png 0.18.1",
  "pollster",
  "reel-core",
+ "reel-media",
  "reel-motion",
+ "tempfile",
  "wgpu",
 ]
 

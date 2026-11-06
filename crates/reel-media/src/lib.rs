@@ -1,1 +1,7 @@
-//! Demux, decode, encode, mux and audio mixing. No UI or GPU dependencies.
+//! Demux, decode, encode, mux, audio mixing.
+
+pub mod bitrate;
+pub mod mix;
+
+#[cfg(target_os = "macos")]
+pub mod macos;

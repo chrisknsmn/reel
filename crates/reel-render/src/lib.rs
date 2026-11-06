@@ -8,6 +8,11 @@
 pub mod gradient;
 mod shaders;
 
+#[cfg(target_os = "macos")]
+pub mod apple;
+#[cfg(target_os = "macos")]
+pub mod export;
+
 use reel_core::project::{Background, Look, MediaRef};
 use reel_motion::camera::Camera;
 use reel_motion::layout::{self, Layout, Rect};
