@@ -3830,6 +3830,12 @@ version = "0.1.0"
 [[package]]
 name = "reel-motion"
 version = "0.1.0"
+dependencies = [
+ "proptest",
+ "reel-core",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "reel-recorder"
