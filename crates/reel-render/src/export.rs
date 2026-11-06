@@ -64,6 +64,15 @@ pub struct Scene {
     pub info: VideoInfo,
     pub stage: (u32, u32),
     pub layers: SceneLayers,
+    /// The webcam's footage, if it's turned on and can be read.
+    pub webcam: Option<WebcamFile>,
+}
+
+/// A webcam recording that's ready to decode.
+#[derive(Clone, Debug)]
+pub struct WebcamFile {
+    pub path: PathBuf,
+    pub size: (u32, u32),
 }
 
 impl Scene {
@@ -93,6 +102,7 @@ impl Scene {
         };
         let cursor = load_cursor(&project, folder);
         let layers = SceneLayers::build(&project, &mask, cursor.as_ref());
+        let webcam = load_webcam(&project, folder);
         Ok(Self {
             project,
             folder: folder.map(Path::to_path_buf),
@@ -100,6 +110,7 @@ impl Scene {
             info,
             stage,
             layers,
+            webcam,
         })
     }
 }
@@ -108,6 +119,19 @@ fn load_cursor(project: &Project, folder: Option<&Path>) -> Option<CursorTrack> 
     let path = project.media.cursor_data.as_ref()?.resolve(folder);
     let text = std::fs::read_to_string(path).ok()?;
     CursorTrack::parse(&text).ok()
+}
+
+fn load_webcam(project: &Project, folder: Option<&Path>) -> Option<WebcamFile> {
+    let settings = &project.webcam;
+    if !settings.enabled {
+        return None;
+    }
+    let path = settings.source.as_ref()?.resolve(folder);
+    let info = probe(&path).ok()?;
+    Some(WebcamFile {
+        path,
+        size: (info.width, info.height),
+    })
 }
 
 fn gpu() -> Result<Headless, ExportError> {
@@ -212,19 +236,12 @@ impl WebcamFrame {
 }
 
 impl WebcamReader {
-    /// Opens the project's webcam file, if it's turned on and can be read. A missing one is a warning
-    /// elsewhere, not a reason to stop an export.
     fn open(scene: &Scene) -> Option<Self> {
-        let settings = &scene.project.webcam;
-        if !settings.enabled {
-            return None;
-        }
-        let path = settings.source.as_ref()?.resolve(scene.folder.as_deref());
-        let info = probe(&path).ok()?;
+        let file = scene.webcam.as_ref()?;
         Some(Self {
-            decoder: Decoder::open(&path).ok()?,
-            settings: settings.clone(),
-            size: (info.width, info.height),
+            decoder: Decoder::open(&file.path).ok()?,
+            settings: scene.project.webcam.clone(),
+            size: file.size,
         })
     }
 

@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestones 0 and 2 are done, apart from the hand checks in step 0.4. In Milestone 1, T2, T3 and T4 pass, and T1 and T5 pass on macOS but haven't been run on Windows or Linux.
+- **Status:** Milestones 0, 2 and 3 are done, apart from the hand checks in step 0.4. In Milestone 1, T2, T3 and T4 pass, and T1 and T5 pass on macOS but haven't been run on Windows or Linux. The renderer half of Milestone 7 is built, without its panels.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -203,21 +203,33 @@ Accepting D3 removes all of this from scope.
 
 **Goal:** the first end-to-end slice. Open a video, preview it with effects, and export it through the same renderer.
 
-- [ ] **3.1** Decode video to GPU textures in `reel-media`, using the T2 result.
-- [ ] **3.2** Build the compositor with one fixed draw order: background, shadow, then video, cursor and annotations inside the camera, then webcam and captions outside it. This resolves the disagreement in §31.
-- [ ] **3.3** Implement layout, padding, crop, squircle corners and shadow (§31), with one shadow look on every path.
-- [ ] **3.4** Implement image, colour, gradient and video backgrounds with blur. Honour gradient angles, and use the same blur radius in preview and export (§31).
-- [ ] **3.5** Implement the zoom engine in `reel-motion` (§32), including connected zooms. Test against the constants in Part 2, subject to D1.
-- [ ] **3.6** Compute camera and cursor paths ahead of time at a fixed step. Preview and export sample the same path, which removes the wall-clock versus content-time difference in §37.
-- [ ] **3.7** Play audio with `cpal` and use it as the master clock. Support speed changes with pitch preserved, and skip clip gaps (§17, §37).
-- [ ] **3.8** Add `reel-cli render`, which writes H.264 MP4 through a hardware encoder (§39).
-- [ ] **3.9** Embed the preview in `reel-app` with basic transport controls.
-- [ ] **3.10** Add golden-frame tests: render known frames headlessly and compare them with stored images.
+- [x] **3.1** Decode video to GPU textures in `reel-media`, using the T2 result.
+- [x] **3.2** Build the compositor with one fixed draw order: background, shadow, then video, cursor and annotations inside the camera, then webcam and captions outside it. This resolves the disagreement in §31.
+- [x] **3.3** Implement layout, padding, crop, squircle corners and shadow (§31), with one shadow look on every path.
+- [x] **3.4** Implement image, colour, gradient and video backgrounds with blur. Honour gradient angles, and use the same blur radius in preview and export (§31).
+- [x] **3.5** Implement the zoom engine in `reel-motion` (§32), including connected zooms. Test against the constants in Part 2, subject to D1.
+- [x] **3.6** Compute camera and cursor paths ahead of time at a fixed step. Preview and export sample the same path, which removes the wall-clock versus content-time difference in §37.
+- [x] **3.7** Play audio with `cpal` and use it as the master clock. Support speed changes with pitch preserved, and skip clip gaps (§17, §37).
+- [x] **3.8** Add `reel-cli render`, which writes H.264 MP4 through a hardware encoder (§39).
+- [x] **3.9** Embed the preview in `reel-app` with basic transport controls.
+- [x] **3.10** Add golden-frame tests: render known frames headlessly and compare them with stored images.
 
 **Exit criteria**
 - Open a video file, apply a look from a config file, and play it smoothly with synced audio.
 - The exported MP4 matches the preview at sampled frames, within a set tolerance.
 - Export speed is recorded against the M0 baseline.
+
+**Result.** All three pass on macOS. `scripts/run-app-test.sh` plays a project with a cursor, webcam, annotations and a zoom at 2× and 120 Hz: the clock holds 1.000×, the picture stays within 12.4 ms of it at p99, and the screen matches the export path's still at 32 dB. Exported frames match those stills at 47–54 dB. Nobody has listened to the audio yet, so "synced" rests on audio being the master clock. Video backgrounds (part of 3.4) move to 7.1. Until then a project with one warns and shows its fallback colour.
+
+| Project | Recordly (0.5) | Reel | Speed-up | Frames against Recordly's |
+|---|---|---|---|---|
+| 1080p30 | 6.11× | 10.62× | 1.74× | 32 dB luma over the clip |
+| 1440p60 | 1.94× | 3.60× | 1.86× | Not measured |
+| 4K with webcam | 1.85× | 3.43× | 1.85× | Compared by eye: see below |
+
+Measured with `reel-cli render` on an M4 Max, with every overlay these projects use turned on.
+
+The 4K project differs on purpose in one way. Recordly's export treats the webcam's margin and corner radius as raw output pixels, while its frame and cursor scale with the output. So its bubble changes proportions with resolution, and doesn't match its own preview. Reel scales all of it from a 1920×1080 reference, which is identical to Recordly at 1080p and gives 4K twice the margin and radius that Recordly does.
 
 ## Milestone 4: Recording on macOS
 

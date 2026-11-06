@@ -54,6 +54,7 @@ pub struct Shared {
     /// What the decode thread should be showing, in source microseconds.
     wanted: AtomicI64,
     latest_frame: Mutex<Option<FrameSlot>>,
+    latest_webcam: Mutex<Option<FrameSlot>>,
     /// Something changed that a paused picture needs to redraw for.
     dirty: AtomicBool,
     #[cfg(feature = "self-test")]
@@ -246,6 +247,10 @@ pub fn start(window: Arc<Window>) {
         .name("reel-decode".into())
         .spawn(decode_thread)
         .expect("couldn't start the decode thread");
+    std::thread::Builder::new()
+        .name("reel-webcam".into())
+        .spawn(webcam_thread)
+        .expect("couldn't start the webcam thread");
 }
 
 #[link(name = "QuartzCore", kind = "framework")]
@@ -285,7 +290,28 @@ fn pin_layer(view: *mut c_void) {
 
 /// Decodes whatever the render thread currently wants, so a seek can't hold up drawing.
 fn decode_thread() {
-    let mut decoder: Option<Decoder> = None;
+    decode_into(
+        &SHARED.latest_frame,
+        |scene| Some(scene.video_path.clone()),
+        |_, source| source,
+    );
+}
+
+/// The webcam gets its own thread, so that a slow seek in its file can't hold up the main picture.
+fn webcam_thread() {
+    decode_into(
+        &SHARED.latest_webcam,
+        |scene| scene.webcam.as_ref().map(|file| file.path.clone()),
+        |scene, source| reel_motion::webcam::webcam_time(&scene.project.webcam, source),
+    );
+}
+
+fn decode_into(
+    slot: &Mutex<Option<FrameSlot>>,
+    file_of: impl Fn(&Scene) -> Option<PathBuf>,
+    time_in: impl Fn(&Scene, SourceTime) -> SourceTime,
+) {
+    let mut decoder: Option<(Decoder, Arc<Scene>)> = None;
     let mut generation = u64::MAX;
     let mut last_wanted = i64::MIN;
     loop {
@@ -293,23 +319,21 @@ fn decode_thread() {
         if current != generation {
             generation = current;
             last_wanted = i64::MIN;
-            decoder = SHARED
-                .scene()
-                .and_then(|scene| Decoder::open(&scene.video_path).ok());
+            decoder = SHARED.scene().and_then(|scene| {
+                let file = file_of(&scene)?;
+                Some((Decoder::open(&file).ok()?, scene))
+            });
         }
         let wanted = SHARED.wanted.load(Ordering::Relaxed);
-        let Some(active) = decoder.as_mut().filter(|_| wanted != last_wanted) else {
+        let Some((active, scene)) = decoder.as_mut().filter(|_| wanted != last_wanted) else {
             std::thread::sleep(Duration::from_millis(2));
             continue;
         };
         last_wanted = wanted;
-        let Ok(Some(frame)) = active.frame_at(SourceTime(wanted)) else {
+        let Ok(Some(frame)) = active.frame_at(time_in(scene, SourceTime(wanted))) else {
             continue;
         };
-        let mut slot = SHARED
-            .latest_frame
-            .lock()
-            .expect("no thread panics while holding this");
+        let mut slot = slot.lock().expect("no thread panics while holding this");
         let changed = slot.as_ref().is_none_or(|existing| {
             existing.frame.pts != frame.pts || existing.generation != generation
         });
@@ -500,6 +524,38 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                 .create_view(&wgpu::TextureViewDescriptor::default());
             let picture_view = picture.create_view(&wgpu::TextureViewDescriptor::default());
 
+            let webcam_frame = SHARED
+                .latest_webcam
+                .lock()
+                .expect("no thread panics while holding this")
+                .as_ref()
+                .filter(|slot| slot.generation == generation)
+                .map(|slot| slot.frame.clone());
+            let webcam_planes =
+                webcam_frame
+                    .as_ref()
+                    .zip(scene.webcam.as_ref())
+                    .map(|(frame, file)| {
+                        let (luma, chroma) = cache.wrap_nv12(&frame.buffer, file.size);
+                        let views = (
+                            luma.texture
+                                .create_view(&wgpu::TextureViewDescriptor::default()),
+                            chroma
+                                .texture
+                                .create_view(&wgpu::TextureViewDescriptor::default()),
+                        );
+                        (luma, chroma, views, file.size)
+                    });
+            let webcam_source = webcam_planes.as_ref().map(|(_, _, views, size)| {
+                (
+                    VideoSource::Nv12 {
+                        luma: &views.0,
+                        chroma: &views.1,
+                    },
+                    *size,
+                )
+            });
+
             renderer.prepare_background(&scene.project.look, stage);
             renderer.encode(
                 &mut encoder,
@@ -513,7 +569,7 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                     },
                     video_size,
                     camera: scene.layers.camera.sample(time),
-                    layers: Some(scene.layers.at(time, None)),
+                    layers: Some(scene.layers.at(time, webcam_source)),
                 },
             );
             // The window may just have shrunk past where the DOM says the hole is.
@@ -540,7 +596,11 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                 );
             }
             in_flight.push_back((luma, chroma));
-            while in_flight.len() > 3 {
+            if let Some((luma, chroma, _, _)) = webcam_planes {
+                in_flight.push_back((luma, chroma));
+            }
+            // Three frames' worth, each with up to two videos.
+            while in_flight.len() > 6 {
                 in_flight.pop_front();
             }
             #[cfg(feature = "self-test")]

@@ -360,15 +360,17 @@ pub async fn run() {
             hole_y + (hole_h - shown_h) / 2.0,
         );
 
+        let dpi = window.scale_factor();
         let mut squared = 0.0_f64;
         let mut count = 0_u64;
         let mut mean = [0.0_f64; 3];
         for row in 2..78 {
             for column in 2..158 {
                 let (u, v) = (f64::from(column) / 160.0, f64::from(row) / 80.0);
+                // Captures are in physical pixels, and page positions are in CSS pixels.
                 let screen = image.pixel(
-                    (shown_x + u * shown_w) as usize,
-                    (shown_y + v * shown_h) as usize + title_bar,
+                    ((shown_x + u * shown_w) * dpi) as usize,
+                    ((shown_y + v * shown_h) * dpi) as usize + title_bar,
                 );
                 let (sx, sy) = ((u * stage_w) as usize, (v * stage_h) as usize);
                 let at = (sy * scene.stage.0 as usize + sx) * 4;
@@ -386,7 +388,7 @@ pub async fn run() {
             "the screen matches the export path's still",
             psnr > 22.0,
             format!(
-                "{psnr:.1} dB at {:.3} s, mean difference r{:+.1} g{:+.1} b{:+.1}, from sampling scaled and unscaled images",
+                "{psnr:.1} dB at {:.3} s, mean difference r{:+.1} g{:+.1} b{:+.1}, from sampling scaled and unscaled images, at {dpi}x",
                 paused.secs(),
                 mean[0] / per,
                 mean[1] / per,

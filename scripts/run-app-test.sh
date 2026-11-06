@@ -35,10 +35,41 @@ if [ "$#" -eq 0 ]; then
             -f lavfi -i "sine=frequency=440:duration=20" -c:v libx264 -preset veryfast -crf 20 \
             -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 -c:a aac -b:a 160k "$video"
     fi
+    webcam=$work/test-webcam.mp4
+    if [ ! -f "$webcam" ]; then
+        ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc=size=640x360:rate=30:duration=20 \
+            -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p \
+            -colorspace bt709 -color_primaries bt709 -color_trc bt709 "$webcam"
+    fi
+    # A cursor that wanders and clicks, so the comparison with the export path covers it too.
+    python3 -I - "$video.cursor.json" <<'PYTHON'
+import json, math, sys
+samples = []
+for index in range(int(20000 / 33)):
+    ms = index * 33
+    samples.append({
+        "timeMs": ms,
+        "cx": 0.5 + 0.3 * math.sin(ms / 1700),
+        "cy": 0.5 + 0.3 * math.cos(ms / 2300),
+        "interactionType": "click" if index % 90 == 45 else "move",
+        "cursorType": "arrow",
+    })
+json.dump({"version": 2, "provider": "native", "samples": samples}, open(sys.argv[1], "w"))
+PYTHON
     cat > "$work/test.recordly" <<JSON
 { "version": 1, "videoPath": "$video", "editor": {
   "wallpaper": "linear-gradient(135deg, #1e3a8a, #9333ea)", "shadowIntensity": 0.67, "borderRadius": 12.5,
-  "padding": 20, "aspectRatio": "16:9",
+  "padding": 20, "aspectRatio": "16:9", "cursorClickEffect": "echo",
+  "webcam": { "enabled": true, "sourcePath": "$webcam", "mirror": true, "positionPreset": "bottom-right",
+    "size": 25, "width": 25, "height": 25 },
+  "annotationRegions": [
+    { "id": "a", "startMs": 0, "endMs": 20000, "type": "figure", "x": 5, "y": 5, "width": 20, "height": 25,
+      "position": { "x": 5, "y": 5 }, "size": { "width": 20, "height": 25 },
+      "figureData": { "arrowDirection": "right", "color": "#FFFFFF", "strokeWidth": 6 } },
+    { "id": "b", "startMs": 0, "endMs": 20000, "type": "blur", "blurIntensity": 18,
+      "position": { "x": 40, "y": 60 }, "size": { "width": 25, "height": 25 } },
+    { "id": "t", "startMs": 0, "endMs": 20000, "type": "text", "textContent": "Reel",
+      "position": { "x": 60, "y": 8 }, "size": { "width": 25, "height": 15 } } ],
   "zoomRegions": [{ "id": "z", "startMs": 3000, "endMs": 7000, "depth": 3, "focus": { "cx": 0.7, "cy": 0.3 }, "mode": "manual" }],
   "clipRegions": [{ "id": "c", "startMs": 0, "endMs": 20000, "speed": 1 }] } }
 JSON

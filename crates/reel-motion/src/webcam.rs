@@ -56,18 +56,21 @@ pub fn layout(
         1.0
     };
     let largest = (dimension - 2.0 * margin).max(SMALLEST * scale);
-    let size =
-        |percent: f64| (percent / 100.0 * dimension * react).clamp(SMALLEST * scale, largest);
-    let (mut width, height) = (size(webcam.width), size(webcam.height));
-
-    // A bubble set roughly square follows the crop's shape instead of squashing it.
+    let size = |percent: f64| {
+        (percent.clamp(10.0, 100.0) / 100.0 * dimension * react).clamp(SMALLEST * scale, largest)
+    };
     let crop = webcam.crop;
-    let is_default_crop = crop == Crop::default();
     let cropped_w = webcam_size.0 * crop.width;
     let cropped_h = webcam_size.1 * crop.height;
-    if !is_default_crop && (webcam.width - webcam.height).abs() < 1.0 && cropped_h > 0.0 {
-        width = (height * cropped_w / cropped_h).clamp(SMALLEST * scale, largest);
-    }
+    // A bubble set square follows the crop's shape instead of squashing it, by changing its height.
+    let is_default_crop = crop == Crop::default();
+    let height_percent =
+        if !is_default_crop && (webcam.width - webcam.height).abs() <= 0.001 && cropped_w > 0.0 {
+            webcam.width / (cropped_w / cropped_h.max(0.001))
+        } else {
+            webcam.height
+        };
+    let (width, height) = (size(webcam.width), size(height_percent));
 
     let (px, py) = preset_fractions(webcam);
     let frame = Rect {
@@ -209,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn it_never_gets_smaller_than_the_minimum() {
+    fn the_setting_is_held_to_ten_percent_or_more() {
         let bubble = layout(
             &Webcam {
                 width: 1.0,
@@ -219,6 +222,23 @@ mod tests {
             STAGE,
             CAMERA,
             1.0,
+            1.0,
+        );
+        assert_eq!(bubble.frame.width, 108.0);
+    }
+
+    #[test]
+    fn it_never_gets_smaller_than_the_minimum() {
+        let bubble = layout(
+            &Webcam {
+                width: 10.0,
+                height: 10.0,
+                react_to_zoom: true,
+                ..webcam()
+            },
+            STAGE,
+            CAMERA,
+            5.0,
             1.0,
         );
         assert_eq!(bubble.frame.width, 56.0);
@@ -264,9 +284,10 @@ mod tests {
             height: 1.0,
         };
         let bubble = layout(&Webcam { crop, ..webcam() }, STAGE, CAMERA, 1.0, 1.0);
-        // The bubble follows the crop's shape, and the right half of the footage fills it.
-        assert_eq!(bubble.frame.height, 432.0);
-        assert!((bubble.frame.width - 384.0).abs() < 1e-6);
+        // The bubble follows the crop's shape by changing its height, and the right half of the
+        // footage fills it.
+        assert_eq!(bubble.frame.width, 432.0);
+        assert!((bubble.frame.height - 486.0).abs() < 1e-6);
         let left_edge_of_crop = bubble.video.x + 0.5 * bubble.video.width;
         assert!((left_edge_of_crop - bubble.frame.x).abs() < 1e-6);
     }
