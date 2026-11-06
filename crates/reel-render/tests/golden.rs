@@ -92,6 +92,7 @@ impl Scene {
                 video: VideoSource::Rgba(&view),
                 video_size: VIDEO,
                 camera,
+                layers: None,
             },
         );
         assert!(renderer.warnings.is_empty(), "{:?}", renderer.warnings);
@@ -281,6 +282,7 @@ fn nv12_video_converts_to_the_right_colours() {
                 },
                 video_size: (4, 4),
                 camera: Camera::IDENTITY,
+                layers: None,
             },
         );
         let pixels = read_pixels(&gpu.device, &gpu.queue, &target);

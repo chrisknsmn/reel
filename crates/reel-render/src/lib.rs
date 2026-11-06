@@ -5,8 +5,12 @@
 //! then webcam and captions outside it. That settles the disagreement between Recordly's three paths
 //! (§31).
 
+pub mod cursors;
 pub mod gradient;
+pub mod layers;
+mod overlay;
 mod shaders;
+pub mod text;
 
 #[cfg(target_os = "macos")]
 pub mod apple;
@@ -45,6 +49,8 @@ pub struct FrameInput<'a> {
     /// The video's size in pixels.
     pub video_size: (u32, u32),
     pub camera: Camera,
+    /// Everything else on the frame, for this moment on the timeline.
+    pub layers: Option<layers::FrameLayers<'a>>,
 }
 
 fn uniform_bytes(values: &[f32]) -> Vec<u8> {
@@ -78,9 +84,34 @@ pub struct Renderer {
     frame_params: wgpu::Buffer,
     placeholder: wgpu::TextureView,
     background: Option<Background_>,
+    overlay: overlay::Overlay,
+    webcam_params: wgpu::Buffer,
     /// Bundled wallpapers aren't shipped yet (D8), so this says which fell back to a colour.
     pub warnings: Vec<String>,
     project_folder: Option<std::path::PathBuf>,
+}
+
+fn begin_pass<'a>(
+    encoder: &'a mut wgpu::CommandEncoder,
+    view: &'a wgpu::TextureView,
+    load: wgpu::LoadOp<wgpu::Color>,
+) -> wgpu::RenderPass<'a> {
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view,
+            depth_slice: None,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load,
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    })
 }
 
 fn fullscreen_pipeline(
@@ -193,10 +224,17 @@ impl Renderer {
         let copy_pipeline = fullscreen_pipeline(&device, COPY, target_format, None);
         let frame_params = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: 112,
+            size: 128,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let webcam_params = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 128,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let overlay = overlay::Overlay::new(&device, target_format);
         let placeholder_texture = make_texture(
             &device,
             (1, 1),
@@ -230,6 +268,8 @@ impl Renderer {
             frame_params,
             placeholder,
             background: None,
+            overlay,
+            webcam_params,
             warnings: Vec::new(),
             project_folder: None,
         }
@@ -280,7 +320,11 @@ impl Renderer {
         let video_f = (f64::from(input.video_size.0), f64::from(input.video_size.1));
         let look = input.look;
         let layout = layout::compute(stage_f, &look.padding, &look.crop, video_f);
-        self.write_frame_params(input, &layout, stage_f);
+        let blur_from = input
+            .layers
+            .as_ref()
+            .and_then(|layers| layers.camera_blur_from);
+        self.write_frame_params(input, &layout, stage_f, blur_from);
 
         let background = self
             .background
@@ -300,17 +344,61 @@ impl Renderer {
                 },
             ],
         });
-        let (plane0, plane1) = match input.video {
+        let frame_bind = self.frame_bind(&self.frame_params, input.video);
+
+        let plan = self.plan_overlays(input, &layout, stage);
+        let scene = plan.needs_snapshot.then(|| self.scene_texture(stage));
+        let scene_view = scene
+            .as_ref()
+            .map(|texture| texture.create_view(&wgpu::TextureViewDescriptor::default()));
+        let target = scene_view.as_ref().unwrap_or(view);
+
+        {
+            let mut pass = begin_pass(encoder, target, wgpu::LoadOp::Clear(wgpu::Color::BLACK));
+            pass.set_pipeline(&self.copy_pipeline);
+            pass.set_bind_group(0, &copy_bind, &[]);
+            pass.draw(0..3, 0..1);
+            pass.set_pipeline(&self.frame_pipeline);
+            pass.set_bind_group(0, &frame_bind, &[]);
+            pass.draw(0..3, 0..1);
+        }
+        self.run_overlays(encoder, target, scene.as_ref(), stage, &plan);
+        if let Some(scene) = &scene {
+            // Blur annotations needed to read what was drawn, so everything went to a texture first.
+            let scene_read = scene.create_view(&wgpu::TextureViewDescriptor::default());
+            let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &self.copy_pipeline.get_bind_group_layout(0),
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&scene_read),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&self.sampler),
+                    },
+                ],
+            });
+            let mut pass = begin_pass(encoder, view, wgpu::LoadOp::Clear(wgpu::Color::BLACK));
+            pass.set_pipeline(&self.copy_pipeline);
+            pass.set_bind_group(0, &bind, &[]);
+            pass.draw(0..3, 0..1);
+        }
+    }
+
+    fn frame_bind(&self, params: &wgpu::Buffer, video: VideoSource<'_>) -> wgpu::BindGroup {
+        let (plane0, plane1) = match video {
             VideoSource::Rgba(view) => (view, &self.placeholder),
             VideoSource::Nv12 { luma, chroma } => (luma, chroma),
         };
-        let frame_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.frame_pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: self.frame_params.as_entire_binding(),
+                    resource: params.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -325,33 +413,16 @@ impl Renderer {
                     resource: wgpu::BindingResource::Sampler(&self.sampler),
                 },
             ],
-        });
-
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("frame"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-        pass.set_pipeline(&self.copy_pipeline);
-        pass.set_bind_group(0, &copy_bind, &[]);
-        pass.draw(0..3, 0..1);
-        pass.set_pipeline(&self.frame_pipeline);
-        pass.set_bind_group(0, &frame_bind, &[]);
-        pass.draw(0..3, 0..1);
+        })
     }
 
-    fn write_frame_params(&self, input: &FrameInput<'_>, layout: &Layout, stage: (f64, f64)) {
+    fn write_frame_params(
+        &self,
+        input: &FrameInput<'_>,
+        layout: &Layout,
+        stage: (f64, f64),
+        blur_from: Option<(Camera, u32)>,
+    ) {
         let camera = input.camera;
         let radius = layout::corner_radius_px(input.look.corner_radius, stage);
         // Shadows are measured at 1920×1080, and scale with the stage like the corner radius does.
@@ -380,6 +451,13 @@ impl Renderer {
                 0.0,
             ]);
         }
+        let (from, samples) = blur_from.unwrap_or((camera, 0));
+        values.extend([
+            from.scale as f32,
+            (from.x * stage.0) as f32,
+            (from.y * stage.1) as f32,
+            samples as f32,
+        ]);
         self.queue
             .write_buffer(&self.frame_params, 0, &uniform_bytes(&values));
     }

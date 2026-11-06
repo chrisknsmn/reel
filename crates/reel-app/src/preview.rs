@@ -512,7 +512,8 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                         chroma: &chroma_view,
                     },
                     video_size,
-                    camera: scene.path.sample(time),
+                    camera: scene.layers.camera.sample(time),
+                    layers: Some(scene.layers.at(time, None)),
                 },
             );
             // The window may just have shrunk past where the DOM says the hole is.

@@ -28,6 +28,8 @@ wgpu = "30"
 pollster = "0.4"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 png = "0.18"
+cosmic-text = "0.19"
+tiny-skia = "0.12"
 
 # Exact pin, matching Rust/UI. This only pins the top-level crate: its sub-crates ask for ^0.7.9,
 # so Cargo.lock holds them at 0.7.9 and deny.toml fails CI if they move. When upgrading, change

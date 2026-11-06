@@ -3,11 +3,13 @@
 [advisories]
 version = 2
 yanked = "deny"
-# Each of these only reaches us through Dioxus, and none has a safe upgrade. Review on every Dioxus upgrade.
+# None of these has a safe upgrade. Review on every upgrade of what brings them in: Dioxus, or for
+# ttf-parser, cosmic-text. All are notices that a crate is unmaintained, not known vulnerabilities.
 ignore = [
     { id = "RUSTSEC-2024-0370", reason = "proc-macro-error is unmaintained, via the gtk3-rs crates dioxus-desktop uses on Linux" },
     { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained, via dioxus-desktop's image dependencies" },
     { id = "RUSTSEC-2025-0057", reason = "fxhash is unmaintained, via wry" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, via fontdb in cosmic-text 0.19, the latest. It reads the fonts installed on the machine" },
 ]
 
 [licenses]

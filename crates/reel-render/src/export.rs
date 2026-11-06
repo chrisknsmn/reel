@@ -4,16 +4,17 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use reel_core::project::{Project, SourceTrack};
-use reel_core::time::{Micros, TimelineTime};
+use reel_core::time::{Micros, SourceTime, TimelineTime};
 use reel_core::timeline::Clip;
 use reel_media::bitrate;
 use reel_media::macos::{Decoder, Encoder, EncoderSettings, VideoInfo, probe, read_pcm};
 use reel_media::mix::{AddedAudio, CHANNELS, Mixer, Pcm, SAMPLE_RATE, source_audio};
-use reel_motion::camera::{Camera, CameraPath};
+use reel_motion::camera::Camera;
 use reel_motion::cursor::CursorTrack;
 use reel_motion::layout::{self, Rect};
 
-use crate::apple::TextureCache;
+use crate::apple::{TextureCache, WrappedTexture};
+use crate::layers::SceneLayers;
 use crate::{
     FrameInput, Headless, Renderer, VideoSource, WORKING_FORMAT, read_pixels, readable_target,
 };
@@ -62,7 +63,7 @@ pub struct Scene {
     pub video_path: PathBuf,
     pub info: VideoInfo,
     pub stage: (u32, u32),
-    pub path: CameraPath,
+    pub layers: SceneLayers,
 }
 
 impl Scene {
@@ -91,14 +92,14 @@ impl Scene {
             height: frame.height / stage_f.1,
         };
         let cursor = load_cursor(&project, folder);
-        let path = CameraPath::build(&project, &mask, cursor.as_ref());
+        let layers = SceneLayers::build(&project, &mask, cursor.as_ref());
         Ok(Self {
             project,
             folder: folder.map(Path::to_path_buf),
             video_path,
             info,
             stage,
-            path,
+            layers,
         })
     }
 }
@@ -140,6 +141,12 @@ pub fn render_still(scene: &Scene, time: TimelineTime) -> Result<Vec<u8>, Export
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default()),
     );
+    let mut webcam = WebcamReader::open(scene);
+    let webcam_frame = webcam
+        .as_mut()
+        .and_then(|reader| reader.frame_at(&cache, source));
+    let webcam_views = webcam_frame.as_ref().map(WebcamFrame::views);
+    let webcam_source = webcam_views.as_ref().map(WebcamViews::source);
     let target = readable_target(&gpu.device, scene.stage, WORKING_FORMAT);
     renderer.render(
         &target,
@@ -150,11 +157,88 @@ pub fn render_still(scene: &Scene, time: TimelineTime) -> Result<Vec<u8>, Export
                 chroma: &chroma_view,
             },
             video_size: size,
-            camera: scene.path.sample(time),
+            camera: scene.layers.camera.sample(time),
+            layers: Some(scene.layers.at(time, webcam_source)),
         },
     );
     let _ = gpu.device.poll(wgpu::PollType::wait_indefinitely());
     Ok(read_pixels(&gpu.device, &gpu.queue, &target))
+}
+
+/// The webcam's footage, read alongside the recording.
+struct WebcamReader {
+    decoder: Decoder,
+    settings: reel_core::project::Webcam,
+    size: (u32, u32),
+}
+
+struct WebcamFrame {
+    luma: WrappedTexture,
+    chroma: WrappedTexture,
+    size: (u32, u32),
+}
+
+struct WebcamViews {
+    luma: wgpu::TextureView,
+    chroma: wgpu::TextureView,
+    size: (u32, u32),
+}
+
+impl WebcamViews {
+    fn source(&self) -> (VideoSource<'_>, (u32, u32)) {
+        (
+            VideoSource::Nv12 {
+                luma: &self.luma,
+                chroma: &self.chroma,
+            },
+            self.size,
+        )
+    }
+}
+
+impl WebcamFrame {
+    fn views(&self) -> WebcamViews {
+        let view = |plane: &WrappedTexture| {
+            plane
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default())
+        };
+        WebcamViews {
+            luma: view(&self.luma),
+            chroma: view(&self.chroma),
+            size: self.size,
+        }
+    }
+}
+
+impl WebcamReader {
+    /// Opens the project's webcam file, if it's turned on and can be read. A missing one is a warning
+    /// elsewhere, not a reason to stop an export.
+    fn open(scene: &Scene) -> Option<Self> {
+        let settings = &scene.project.webcam;
+        if !settings.enabled {
+            return None;
+        }
+        let path = settings.source.as_ref()?.resolve(scene.folder.as_deref());
+        let info = probe(&path).ok()?;
+        Some(Self {
+            decoder: Decoder::open(&path).ok()?,
+            settings: settings.clone(),
+            size: (info.width, info.height),
+        })
+    }
+
+    /// The webcam's frame for a moment in the recording.
+    fn frame_at(&mut self, cache: &TextureCache, source: SourceTime) -> Option<WebcamFrame> {
+        let time = reel_motion::webcam::webcam_time(&self.settings, source);
+        let frame = self.decoder.frame_at(time).ok()??;
+        let (luma, chroma) = cache.wrap_nv12(&frame.buffer, self.size);
+        Some(WebcamFrame {
+            luma,
+            chroma,
+            size: self.size,
+        })
+    }
 }
 
 /// Which output frame shows what. Gaps between clips are skipped (§41).
@@ -246,6 +330,7 @@ pub fn export_mp4(
     renderer.set_project_folder(scene.folder.as_deref());
     let cache = TextureCache::new(&gpu.device);
     let mut decoder = Decoder::open(&scene.video_path)?;
+    let mut webcam = WebcamReader::open(scene);
 
     let mut temporary = output.as_os_str().to_os_string();
     temporary.push(".tmp.mp4");
@@ -296,6 +381,11 @@ pub fn export_mp4(
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default()),
         );
+        let webcam_frame = webcam
+            .as_mut()
+            .and_then(|reader| reader.frame_at(&cache, source));
+        let webcam_views = webcam_frame.as_ref().map(WebcamFrame::views);
+        let webcam_source = webcam_views.as_ref().map(WebcamViews::source);
         let buffer = encoder.next_buffer()?;
         let target = cache.wrap_target(&buffer, (width, height));
         renderer.render(
@@ -307,7 +397,8 @@ pub fn export_mp4(
                     chroma: &chroma_view,
                 },
                 video_size,
-                camera: scene.path.sample(time),
+                camera: scene.layers.camera.sample(time),
+                layers: Some(scene.layers.at(time, webcam_source)),
             },
         );
         // The encoder reads the buffer as soon as it's handed over, so the GPU has to be finished.
@@ -358,5 +449,5 @@ fn audio_frame(video_frame: u64, fps: u32) -> u64 {
 /// The camera at a time, for callers drawing their own frames.
 #[must_use]
 pub fn camera_at(scene: &Scene, time: TimelineTime) -> Camera {
-    scene.path.sample(time)
+    scene.layers.camera.sample(time)
 }

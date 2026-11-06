@@ -98,6 +98,7 @@ struct Params {
     shadow0: vec4f,     // y offset, sigma, alpha, unused
     shadow1: vec4f,
     shadow2: vec4f,
+    blur_from: vec4f,   // the camera a moment ago (scale, x, y), then how many samples to blur over
 };
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var plane0: texture_2d<f32>;
@@ -208,10 +209,83 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
     let coverage = squircle_coverage(point, center, p.frame.zw * 0.5, radius);
     var color = vec3f(0.0);
     if (coverage > 0.0) {
-        color = sample_video((point - p.video.xy) / p.video.zw);
+        let samples = i32(p.blur_from.w);
+        if (samples > 1) {
+            // Motion blur: the picture averaged along where the camera has just been (§32).
+            for (var i = 0; i < samples; i += 1) {
+                let t = f32(i) / f32(samples - 1);
+                let scale = mix(p.camera.x, p.blur_from.x, t);
+                let offset = mix(p.camera.yz, p.blur_from.yz, t);
+                let moved = (pos.xy - offset) / scale;
+                color += sample_video((moved - p.video.xy) / p.video.zw);
+            }
+            color /= f32(samples);
+        } else {
+            color = sample_video((point - p.video.xy) / p.video.zw);
+        }
     }
     // Premultiplied: the video over its shadow.
     let alpha = coverage + shadow * (1.0 - coverage);
     return vec4f(color * coverage, alpha);
+}
+"#;
+
+/// A rectangle anywhere on the stage: a texture, a ring, a solid colour, or a window onto a texture
+/// that's the same size as the stage, for blur annotations.
+pub const QUAD: &str = r#"
+struct Quad {
+    center: vec2f,
+    half_size: vec2f,
+    rotation: vec2f,   // cos, sin
+    stage: vec2f,
+    uv: vec4f,
+    color: vec4f,      // tint and opacity
+    params: vec4f,     // kind (0 texture, 1 ring, 2 stage window), ring radius, ring stroke (0 fills), unused
+};
+@group(0) @binding(0) var<uniform> q: Quad;
+@group(1) @binding(0) var image: texture_2d<f32>;
+@group(1) @binding(1) var linear_sampler: sampler;
+
+struct Out {
+    @builtin(position) position: vec4f,
+    @location(0) local: vec2f,
+    @location(1) uv: vec2f,
+};
+
+@vertex
+fn vs(@builtin(vertex_index) i: u32) -> Out {
+    let corner = vec2f(f32(i & 1u) * 2.0 - 1.0, f32(i >> 1u) * 2.0 - 1.0);
+    let local = corner * q.half_size;
+    let turned = vec2f(
+        local.x * q.rotation.x - local.y * q.rotation.y,
+        local.x * q.rotation.y + local.y * q.rotation.x,
+    );
+    let at = q.center + turned;
+    let clip = vec2f(at.x / q.stage.x * 2.0 - 1.0, 1.0 - at.y / q.stage.y * 2.0);
+    let uv = mix(q.uv.xy, q.uv.zw, (corner + vec2f(1.0)) * 0.5);
+    return Out(vec4f(clip, 0.0, 1.0), local, uv);
+}
+
+@fragment
+fn fs(in: Out) -> @location(0) vec4f {
+    let kind = q.params.x;
+    if (kind < 0.5) {
+        return textureSampleLevel(image, linear_sampler, in.uv, 0.0) * q.color.a * vec4f(q.color.rgb, 1.0);
+    }
+    if (kind < 1.5) {
+        let distance_out = length(in.local);
+        var edge: f32;
+        if (q.params.z > 0.0) {
+            edge = abs(distance_out - q.params.y) - q.params.z * 0.5;
+        } else {
+            edge = distance_out - q.params.y;
+        }
+        let coverage = clamp(0.5 - edge, 0.0, 1.0) * q.color.a;
+        return vec4f(q.color.rgb * coverage, coverage);
+    }
+    // A window onto the blurred stage, at this same place on it.
+    let uv = in.position.xy / q.stage;
+    let sampled = textureSampleLevel(image, linear_sampler, uv, 0.0);
+    return vec4f(sampled.rgb * q.color.a, q.color.a);
 }
 "#;
