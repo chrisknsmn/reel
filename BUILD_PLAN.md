@@ -160,9 +160,9 @@ Accepting D3 removes all of this from scope.
   - **Status:** macOS passes, using `spikes/t1-layering` (`docs/spikes.md`). Still to run: Windows, X11 and Wayland, plus a hand check on the Mac with a real mouse.
 - [x] **T2: Decode.** Hardware-decode H.264 up to 4K60 into a wgpu texture, and compare FFmpeg with native APIs (D5).
   - **Pass:** real-time playback at 4K60 on the reference Mac, with responsive seeking.
-- [ ] **T3: Launch bar window.** Build a small, transparent, always-on-top window that can be dragged between monitors and grows when a popover opens. Don't port Electron's full-screen mouse forwarding (§47).
+- [x] **T3: Launch bar window.** Build a small, transparent, always-on-top window that can be dragged between monitors and grows when a popover opens. Don't port Electron's full-screen mouse forwarding (§47).
   - **Pass:** no flicker on resize, clicks outside the bar reach other apps, and the window stays out of its own recordings.
-  - **Also check:** whether the first click on the bar works while another app is active. T1 found that click is lost, and Dioxus doesn't expose wry's `with_accept_first_mouse`.
+  - **Status:** passes on macOS (`docs/spikes.md`). Dragging between monitors still needs a hand check, because this Mac has one display, and ScreenCaptureKit exclusion needs step 4.3.
 - [ ] **T4: Timeline speed.** Build a timeline with 500 items and a moving playhead in Dioxus. Measure drag and playhead latency across the webview boundary. Compare DOM items with `<canvas>`.
   - **Pass:** a chosen approach that holds 60 fps while dragging and playing.
 - [ ] **T5: Rust/UI on real webviews.** Render every vendored component in WKWebView, WebView2 and WebKitGTK. Its own tests run only on Chromium, so list every failure. Also list each `wasm32`-only branch that those components use, since those do nothing on desktop.

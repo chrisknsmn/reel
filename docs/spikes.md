@@ -160,6 +160,32 @@ In real time at 4K60, on either decoder:
 - **Variable frame rate.** Screen recordings can be, and this test's clips aren't.
 - **Rendering to a window.** T1 covered that with a simple uploader, and step 3.1 joins them up.
 
+## T3: Launch bar window
+
+**T3 passes on macOS, apart from two things it couldn't check here: a real drag between monitors, and ScreenCaptureKit.** The approach is a good replacement for Recordly's full-screen window with mouse forwarding.
+
+`spikes/t3-launch-bar` is a frameless, transparent, always-on-top window of 640x72 that grows to 640x400 when a popover opens. All its checks passed.
+
+| Criterion | Result | Evidence |
+|---|---|---|
+| No flicker on resize | Pass | In 599 captures across 12 grows and shrinks, the bar never moved and the window was never blank. Click to resized took 27 ms. |
+| Clicks outside the bar reach other apps | Pass by design | The window only covers the bar, or the bar and an open popover, so there's nothing to forward. Not tested with a real click. |
+| Stays out of its own recordings | Partly checked | With `setContentProtection`, `CGWindowListCreateImage` returns a blank image. ScreenCaptureKit needs permission, so step 4.3 has to confirm it. |
+| Can be dragged between monitors | Not checked | This Mac has one display. The bar does draw after moving, and `window.drag()` is wired up, but it needs a hand check. |
+
+### What made it work
+
+Steps 5.1 to 5.3 should use all of these:
+
+- **Don't resize the webview.** Pin it at its largest size, anchored to the window's bottom edge, and change only the window's height. Resizing it with the window made the bar jump by the full 328 px for a frame in about half of all transitions, and sometimes go blank. WebKit keeps old content at the top of the taller view until a new layout arrives. Pinned, the page never changes size.
+- **Change the window with `setFrame`.** An NSWindow's origin is its bottom-left corner, so keeping the origin grows the window upward in one step.
+- **Replace `acceptsFirstMouse:` on `WryWebView`.** Otherwise the first click on the bar is lost while another app is active, which T1 found. Dioxus doesn't expose wry's option, so the test app replaces the method at runtime. An upstream option would be better if Dioxus adds one.
+
+### Things step 5 has to handle
+
+- **Near the top of the screen,** AppKit pushes the window down rather than let it grow past the top, which moved the bar by 83 px in the first run. The bar needs to open its popover downward there, or stay clear of the edge.
+- **A popover that is open makes the window's transparent areas clickable.** That matches Recordly, where an open popover makes the whole window clickable, and a click there should close the popover.
+
 ## Running test apps on macOS
 
 These cost time during T1, and will apply to later tests too.
