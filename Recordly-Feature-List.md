@@ -115,7 +115,7 @@ The bar shows a spinner with "Preparing recording / Opening the editor in a mome
 - Displays are named `Screen N (Primary)`, and windows `App — Title` on macOS
 - Recordly's own windows are filtered out
 - Choosing a source shows an animated purple border around it for about 1.7 seconds
-- Choosing a window brings it to the front on macOS and Linux first
+- Choosing a window brings it to the front on macOS first. Linux code exists (`electron/ipc/register/sources.ts:351`) but looks unreachable: only the launch bar's Source popover triggers it, and that popover is hidden on Linux (`LaunchWindow.tsx:225`).
 - The selection isn't saved between launches
 - On Linux the system portal picks the source
 
@@ -427,8 +427,9 @@ The header's Presets menu saves the current look under a name, then applies or d
 ## 20. Projects
 
 - **File:** `<name>.recordly`, plain JSON that references media by absolute path. Media isn't copied.
-- **Save** (Cmd/Ctrl+S): writes to the current path with a thumbnail and a toast. With no path yet, it asks for a name.
-- **Save As** (Cmd/Ctrl+Shift+S): an in-app name dialog that always saves into the Projects folder, with no folder choice.
+- **Save** (Cmd+S, macOS only): writes to the current path with a thumbnail and a toast. With no path yet, it asks for a name.
+- **Save As** (Cmd+Shift+S, macOS only): an in-app name dialog that always saves into the Projects folder, with no folder choice.
+- **No manual save on Windows or Linux:** both commands exist only as macOS menu items, and those platforms have no app menu (`electron/main.ts:416-420`). There's no Save button or key handler either. Saving there happens only through autosave, once a project has a file, or by choosing Save in an unsaved-changes prompt.
 - **Rename:** click the title. This replaces the file and removes the old file, thumbnail and backup.
 - **Autosave:** silent, one second after a change, but only once the project has a file. New unsaved recordings don't autosave.
 - **Backups:** the previous save is kept as `.recordly.bak`
@@ -436,7 +437,7 @@ The header's Presets menu saves the current look under a name, then applies or d
   - Opening something else asks: Cancel, Discard changes, Save project
   - Closing the window asks: Save & Close, Discard & Close, Cancel
 - **Name clashes:** a named save refuses to overwrite a different project
-- **Project browser** (folder button or Cmd/Ctrl+O):
+- **Project browser** (folder button, or Cmd+O on macOS):
   - A 280 px panel showing the newest 24 projects, with thumbnails and a "Current" badge
   - Has an Import button for opening other videos or projects
   - No search, sort, delete, rename or reveal
@@ -524,8 +525,8 @@ The rebind dialog works like this: click a shortcut and press the new keys. Conf
 | Select all zooms | Cmd/Ctrl+A |
 | Cycle annotations | Tab, Shift+Tab |
 | Cancel or close | Esc |
-| Open projects | Cmd/Ctrl+O (macOS menu) |
-| Save, Save As | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S (macOS menu) |
+| Open projects | Cmd+O (macOS menu only) |
+| Save, Save As | Cmd+S, Cmd+Shift+S (macOS menu only) |
 | Zoom timeline | Cmd/Ctrl+wheel |
 | Pan timeline | Shift+wheel |
 
@@ -955,6 +956,7 @@ Used in preview and export:
 ### Transcription
 
 - **Audio source:** the recording, then the linked webcam file. Only the first audio stream is used, extracted with `ffmpeg -map 0:a:0 -vn -ac 1 -ar 16000 -c:a pcm_s16le`. **Separate mic files aren't consulted, and there's no source selector.**
+- **Native Windows recordings have no audio to transcribe:** that path moves system and mic audio to `.system.wav` and `.mic.wav` sidecars instead of muxing them into the MP4 (`electron/ipc/recording/windows.ts:211-240`). The webcam file is recorded with no audio too, so generation fails with "No audio was found to transcribe".
 - **Whisper:** `-m -f -osrt -of -l -np -ojf`, 30-minute timeout, retrying without `-ojf` if it's unsupported
 - **Executable search order:** chosen path, bundled, `WHISPER_CPP_PATH`, Homebrew, `which` or `where`
 - **Model download:** `.download` temp file then rename, 5 redirects, 30-second timeout, progress events, no checksum
@@ -1239,7 +1241,7 @@ Pretty-printed JSON; a byte order mark is tolerated.
 - **Export:** `exportEncodingMode`, `exportBackendPreference`, `exportPipelineModel`, `exportQuality`, `mp4FrameRate`, `exportFormat`, `gifFrameRate`, `gifLoop`, `gifSizePreset`
 - **Audio:** `sourceAudioTrackSettingsByClip`, `defaultSourceAudioTrackSettings`
 
-**Load limits:** durations 60–4000, connected gap 0–5000, spring multipliers 0.25–3, sway 0–2, blur 0–2, size 1–200%. Empty caption cues are dropped.
+**Load limits:** durations 60–4000, connected gap 0–5000, spring multipliers 0.25–3, sway 0–2, zoom motion blur 0–2, background blur 0–8, size 1–200%. Empty caption cues are dropped.
 
 **Legacy conversions on load** (`version` is only type-checked):
 
@@ -1447,7 +1449,9 @@ These are capabilities Electron and its dependencies provide today, which a Rust
 | Background and annotation blur | CSS `blur()`, `backdrop-filter`, `ctx.filter` |
 | Timeline drag and drop | dnd-timeline |
 | On-canvas drag and resize | react-rnd |
-| UI controls and colour pickers | Radix UI, @uiw/react-color-block, Tailwind |
+| UI controls and colour pickers | shadcn/ui components (`src/components/ui`, `components.json`) over Radix UI, @uiw/react-color-block, Tailwind CSS 3 with tailwindcss-animate |
+| Toast notifications | sonner |
+| Icons | @phosphor-icons/react, plus one react-icons import. `components.json` names lucide as the icon library, but it isn't installed or imported. |
 | Mouse hook | uiohook-napi |
 | Audio conversion, muxing, probing | ffmpeg-static, ffprobe-static |
 | Transcription | whisper.cpp |
@@ -1539,6 +1543,8 @@ None of these were seen at runtime; they come from reading the code.
 | **Closing the editor strands the app** | `electron/main.ts:768-775` | Nothing re-shows the launch bar |
 | **Legacy isn't the WebCodecs path its hint claims** | `src/lib/exporter/videoExporter.ts:483` ignores the setting | It tries FFmpeg first |
 | **Keyboard can't delete clips** | `onClipDelete` is passed to `SettingsPanel` but not the timeline | Delete does nothing on a clip |
+| **No manual save on Windows or Linux** | `electron/main.ts:416-420` removes the app menu; `VideoEditor.tsx:3338` is the only trigger for Save | Ctrl+S does nothing, and a new recording can't be saved until an unsaved-changes prompt appears |
+| **Captions fail on native Windows recordings** | `electron/ipc/recording/windows.ts:211-240` keeps audio in sidecars; `electron/ipc/captions/generate.ts:85-105` never reads them | "No audio was found to transcribe" |
 
 ### Found in the code review, not re-checked
 
