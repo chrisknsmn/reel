@@ -16,6 +16,15 @@ publish = false
 [workspace.dependencies]
 # Reel's own crates.
 reel-core = { path = "crates/reel-core", version = "0.1.0" }
+reel-media = { path = "crates/reel-media", version = "0.1.0" }
+reel-motion = { path = "crates/reel-motion", version = "0.1.0" }
+reel-render = { path = "crates/reel-render", version = "0.1.0" }
+
+# Rendering.
+wgpu = "30"
+pollster = "0.4"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+png = "0.18"
 
 # Exact pin, matching Rust/UI. This only pins the top-level crate: its sub-crates ask for ^0.7.9,
 # so Cargo.lock holds them at 0.7.9 and deny.toml fails CI if they move. When upgrading, change
