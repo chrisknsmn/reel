@@ -1,0 +1,17 @@
+# Rust and Dioxus build output
+/target/
+/.dx/
+/dist/
+
+# Recordly baseline: sample media, exports and timings stay out of git (BUILD_PLAN 0.5)
+/baseline/
+
+# OS and editor files
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local secrets
+.env
+.env.*
