@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 5c84f9d03dd7d492711a6ce0b4eba51ff13e2f3ae66ce7effeca66d7567addc7 # shrinks to splits = [1000], moves = [(0, 1, 0, true), (0, 1, 0, true), (2, 1, 0, true), (0, 0, 1, false)]
+cc 45717448136c4232a32ad33be9a0f47a19ccbe03d84b7a59931ad9232e73a291 # shrinks to edits = [SplitClip { at: TimelineTime(100000) }, MoveClip { id: ItemId("clip-1"), to: TimelineTime(1000) }, SplitClip { at: TimelineTime(0) }, SplitClip { at: TimelineTime(0) }]
+cc 2e426740763b6827264baf3491cd99faf6a7685cbf418cfa1a0073f5c073c6c5 # shrinks to edits = [ResizeZoom { id: ItemId("zoom-1"), edge: End, to: TimelineTime(5001000) }]
+cc f69b22465d51f15ee47d88baa05d3aa4e11cbab96db71a80c1348a9199e67dcd # shrinks to edits = [AddCaption { start: TimelineTime(28715000), end: TimelineTime(31001000), text: "x" }, MoveCaption { id: ItemId("caption-1"), to: TimelineTime(13501000) }]
+cc d6153c46a21b29ed8668dee1b9324e40575ff16dc543fa836123058e72b95b0e # shrinks to edits = [ResizeZoom { id: ItemId("zoom-3"), edge: End, to: TimelineTime(30657000) }, MoveZoom { id: ItemId("zoom-1"), to: TimelineTime(11001000) }]
+cc 3fb6f1bf8d10b087625bfae84dc09c0cfdae4c81d62a11650f6ecea062509fac # shrinks to edits = [ResizeAudio { id: ItemId("audio-1"), edge: End, to: TimelineTime(8001000) }]

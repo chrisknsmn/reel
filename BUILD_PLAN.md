@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestone 0 is done apart from the hand checks in step 0.4. In Milestone 1, T1 passes on macOS but hasn't been run on Windows or Linux.
+- **Status:** Milestones 0 and 2 are done, apart from the hand checks in step 0.4. In Milestone 1, T1, T2, T3 and T4 pass on macOS, with T1 still to run on Windows and Linux, and T5 needs a final run.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -182,16 +182,16 @@ Accepting D3 removes all of this from scope.
 
 **Goal:** a tested data model with no UI or GPU dependency.
 
-- [ ] **2.1** Define the project types in `reel-core`. Give clips a source position as well as a timeline position, which makes real reordering possible (§15, §45).
-- [ ] **2.2** Use separate types for source time and timeline time. This makes the §58 mix-up between click times and zoom times a compile error.
-- [ ] **2.3** Implement edits as commands with the overlap rules in §14 and §15. Include splitting at non-1× speeds, which §58 reports as broken.
-- [ ] **2.4** Build undo over the whole document, including look settings and crop (§18). Merge slider drags and typing into single steps, and leave selection changes out of history (§58).
-- [ ] **2.5** Define `.reel` as versioned JSON with explicit migrations, unlike Recordly's unchecked `version` (§45). Store relative media paths with an absolute fallback.
-- [ ] **2.6** Implement atomic save and `.bak` (§45).
-- [ ] **2.7** Make autosave cover new recordings too (§20), and stop projects from reading as dirty on open (§58).
-- [ ] **2.8** Write the `.recordly` importer with all the legacy conversions in §45, tested against real project files from M0.
-- [ ] **2.9** Build one Rust-owned settings store with no partial overwrites (§46, §58). Don't use `localStorage`, because §58 shows how that fails across windows.
-- [ ] **2.10** Add `reel-cli convert`.
+- [x] **2.1** Define the project types in `reel-core`. Give clips a source position as well as a timeline position, which makes real reordering possible (§15, §45).
+- [x] **2.2** Use separate types for source time and timeline time. This makes the §58 mix-up between click times and zoom times a compile error.
+- [x] **2.3** Implement edits as commands with the overlap rules in §14 and §15. Include splitting at non-1× speeds, which §58 reports as broken.
+- [x] **2.4** Build undo over the whole document, including look settings and crop (§18). Merge slider drags and typing into single steps, and leave selection changes out of history (§58).
+- [x] **2.5** Define `.reel` as versioned JSON with explicit migrations, unlike Recordly's unchecked `version` (§45). Store relative media paths with an absolute fallback.
+- [x] **2.6** Implement atomic save and `.bak` (§45).
+- [x] **2.7** Make autosave cover new recordings too (§20), and stop projects from reading as dirty on open (§58).
+- [x] **2.8** Write the `.recordly` importer with all the legacy conversions in §45, tested against real project files from M0.
+- [x] **2.9** Build one Rust-owned settings store with no partial overwrites (§46, §58). Don't use `localStorage`, because §58 shows how that fails across windows.
+- [x] **2.10** Add `reel-cli convert`.
 
 **Exit criteria**
 - A real `.recordly` project converts to `.reel` and round-trips without changes.

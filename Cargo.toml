@@ -14,6 +14,9 @@ repository = "https://github.com/chrisknsmn/reel"
 publish = false
 
 [workspace.dependencies]
+# Reel's own crates.
+reel-core = { path = "crates/reel-core", version = "0.1.0" }
+
 # Exact pin, matching Rust/UI. This only pins the top-level crate: its sub-crates ask for ^0.7.9,
 # so Cargo.lock holds them at 0.7.9 and deny.toml fails CI if they move. When upgrading, change
 # these two lines, the bans in deny.toml and the installed dioxus-cli together.
@@ -23,8 +26,13 @@ dioxus-ssr = "=0.7.9"
 # Used by the vendored Rust/UI components. See VENDORED.md.
 icons = { version = "0.19", features = ["dioxus"] }
 tw_merge = "0.1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 strum = { version = "0.28", features = ["derive"] }
+
+# Tests only.
+proptest = "1"
+tempfile = "3"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
