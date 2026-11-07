@@ -291,3 +291,237 @@ fn a_missing_video_says_so() {
     let error = Scene::new(project, None).err().expect("should fail");
     assert!(error.0.contains("wasn't found"), "{}", error.0);
 }
+
+/// A folder with the test video in it, if this machine can make one.
+fn with_video() -> Option<(tempfile::TempDir, std::path::PathBuf)> {
+    let gpu = gpu()?;
+    let folder = tempfile::tempdir().unwrap();
+    let video = folder.path().join("video.mp4");
+    make_video(&gpu, &video);
+    Some((folder, video))
+}
+
+fn gif_project(video: &Path, gif_loop: bool) -> Project {
+    let mut project = project_for(video);
+    project.export.format = reel_core::project::ExportFormat::Gif;
+    project.export.gif_frame_rate = 15;
+    project.export.gif_size = reel_core::project::GifSize::Small;
+    project.export.gif_loop = gif_loop;
+    project
+}
+
+/// Counts the frames in a GIF, and whether it repeats, by reading it back.
+fn read_gif(path: &Path) -> (u16, u16, usize, Vec<u16>, bool) {
+    let bytes = std::fs::read(path).unwrap();
+    let repeats = bytes.windows(11).any(|part| part == b"NETSCAPE2.0");
+    let mut options = gif::DecodeOptions::new();
+    options.set_color_output(gif::ColorOutput::Indexed);
+    let mut reader = options.read_info(std::io::Cursor::new(bytes)).unwrap();
+    let (width, height) = (reader.width(), reader.height());
+    let mut delays = Vec::new();
+    while let Some(frame) = reader.read_next_frame().unwrap() {
+        delays.push(frame.delay);
+    }
+    (width, height, delays.len(), delays, repeats)
+}
+
+#[test]
+fn a_gif_has_the_right_frames_and_timing() {
+    let Some((folder, video)) = with_video() else {
+        return;
+    };
+    let scene = Scene::new(gif_project(&video, true), None).unwrap();
+    let output = folder.path().join("out.gif");
+    let report = reel_render::export::export_gif(&scene, &output, |_, _| true).unwrap();
+    let (width, height, frames, delays, repeats) = read_gif(&output);
+    assert_eq!(u64::try_from(frames).unwrap(), report.frames);
+    assert!(height <= 480 && width > 0, "{width}×{height}");
+    assert!(repeats, "looping is on");
+    // Averaged, the frame rate is what was asked for, and not what rounding each delay would give.
+    let centiseconds: u32 = delays.iter().map(|delay| u32::from(*delay)).sum();
+    let fps = frames as f64 / (f64::from(centiseconds) / 100.0);
+    assert!((fps - 15.0).abs() < 0.2, "{fps} fps from {delays:?}");
+}
+
+#[test]
+fn a_gif_with_loop_off_plays_once() {
+    let Some((folder, video)) = with_video() else {
+        return;
+    };
+    let scene = Scene::new(gif_project(&video, false), None).unwrap();
+    let output = folder.path().join("out.gif");
+    reel_render::export::export_gif(&scene, &output, |_, _| true).unwrap();
+    let (.., repeats) = read_gif(&output);
+    assert!(!repeats, "with no repeat block, viewers play it once");
+}
+
+#[test]
+fn cancelling_a_gif_leaves_nothing() {
+    let Some((folder, video)) = with_video() else {
+        return;
+    };
+    let scene = Scene::new(gif_project(&video, true), None).unwrap();
+    let output = folder.path().join("out.gif");
+    let result = reel_render::export::export_gif(&scene, &output, |done, _| done < 3);
+    assert!(result.is_err());
+    assert!(!output.exists());
+    let left: Vec<_> = std::fs::read_dir(folder.path())
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("out.gif"))
+        .collect();
+    assert!(left.is_empty(), "{left:?}");
+}
+
+#[test]
+fn quality_scales_the_output_size() {
+    let Some((folder, video)) = with_video() else {
+        return;
+    };
+    let mut project = project_for(&video);
+    project.export.quality = reel_core::project::ExportQuality::Low;
+    let scene = Scene::new(project, None).unwrap();
+    let output = folder.path().join("out.mp4");
+    let report = export_mp4(&scene, &output, |_, _| true).unwrap();
+    assert_eq!(
+        (report.width, report.height),
+        reel_core::project::ExportQuality::Low.scaled_size(scene.stage)
+    );
+    assert!(report.width < scene.stage.0);
+    let info = reel_media::macos::probe(&output).unwrap();
+    assert_eq!((info.width, info.height), (report.width, report.height));
+}
+
+#[test]
+fn a_video_background_shows_and_moves() {
+    let Some((_folder, video)) = with_video() else {
+        return;
+    };
+    let mut project = project_for(&video);
+    // The video itself makes a fine moving background for this test.
+    project.look.background = Background::Video(project.media.video.clone());
+    project.look.padding = Padding::uniform(50.0);
+    let scene = Scene::new(project, None).unwrap();
+    assert!(scene.background_video.is_some());
+    let early = render_still(&scene, TimelineTime::from_ms(100.0)).unwrap();
+    let later = render_still(&scene, TimelineTime::from_ms(2500.0)).unwrap();
+    // The top-left corner is background, not video.
+    let corner = |pixels: &[u8]| {
+        let mut total = 0_u64;
+        for y in 0..10_usize {
+            for x in 0..10_usize {
+                let at = (y * scene.stage.0 as usize + x) * 4;
+                total +=
+                    u64::from(pixels[at]) + u64::from(pixels[at + 1]) + u64::from(pixels[at + 2]);
+            }
+        }
+        total
+    };
+    assert_ne!(
+        corner(&early),
+        corner(&later),
+        "the background should move with time"
+    );
+}
+
+#[test]
+fn a_gif_size_keeps_the_shape_and_stays_even() {
+    use reel_core::project::GifSize;
+    use reel_render::export::gif_size;
+    assert_eq!(gif_size((1920, 1080), GifSize::Medium), (1280, 720));
+    assert_eq!(gif_size((1920, 1080), GifSize::Large), (1920, 1080));
+    assert_eq!(gif_size((1920, 1080), GifSize::Original), (1920, 1080));
+    assert_eq!(gif_size((3840, 2160), GifSize::Large), (1920, 1080));
+    assert_eq!(gif_size((1000, 2000), GifSize::Medium), (360, 720));
+    let (width, height) = gif_size((1921, 1081), GifSize::Medium);
+    assert!(width % 2 == 0 && height % 2 == 0);
+}
+
+#[test]
+fn gif_delays_average_out_to_the_frame_rate() {
+    use reel_render::export::gif_delay;
+    for fps in [15_u32, 20, 25, 30] {
+        let total: u64 = (0..u64::from(fps) * 60)
+            .map(|frame| u64::from(gif_delay(frame, fps)))
+            .sum();
+        assert_eq!(total, 6000, "{fps} fps over a minute");
+    }
+    assert_eq!(gif_delay(0, 20), 5);
+    assert_eq!(gif_delay(0, 25), 4);
+}
+
+/// A busy 1080p video with sound, of the kind that makes the encoder take real time. Flat frames encode
+/// too quickly to show the problem the next test is about. Returns `None` if FFmpeg isn't installed.
+fn busy_video_with_sound(path: &Path) -> Option<()> {
+    let status = std::process::Command::new("ffmpeg")
+        .args(["-hide_banner", "-loglevel", "error", "-y"])
+        .args([
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=1920x1080:rate=60:duration=5",
+        ])
+        .args(["-f", "lavfi", "-i", "sine=frequency=440:duration=5"])
+        .args([
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+        ])
+        .args(["-c:a", "aac", "-b:a", "160k"])
+        .arg(path)
+        .status()
+        .ok()?;
+    status.success().then_some(())
+}
+
+/// This used to hang for good. AVAssetWriter can refuse video until it has more sound, and the export
+/// wouldn't write more sound until the video was taken. A blur annotation's extra work was enough to
+/// bring it out, in a real project with a real 1080p video.
+#[test]
+fn an_export_with_sound_and_a_blur_finishes() {
+    if gpu().is_none() {
+        return;
+    }
+    let folder = tempfile::tempdir().unwrap();
+    let video = folder.path().join("video.mp4");
+    if busy_video_with_sound(&video).is_none() {
+        println!("FFmpeg isn't installed, so this test is skipped.");
+        return;
+    }
+
+    let mut project = project_for(&video);
+    project.timeline = Timeline::for_recording(Micros::from_secs(5));
+    project.export.mp4_frame_rate = 30;
+    project.timeline.annotations = vec![reel_core::timeline::Annotation {
+        id: "blur".into(),
+        start: TimelineTime::ZERO,
+        end: TimelineTime::from_ms(5000.0),
+        content: reel_core::timeline::AnnotationContent::Blur {
+            strength: 18.0,
+            fill: None,
+        },
+        position: reel_core::timeline::Point { x: 40.0, y: 60.0 },
+        width: 25.0,
+        height: 25.0,
+        track: 0,
+        layer: 0,
+    }];
+    let output = folder.path().join("out.mp4");
+    let (done, finished) = std::sync::mpsc::channel();
+    let target = output.clone();
+    std::thread::spawn(move || {
+        let scene = Scene::new(project, None).unwrap();
+        let report = export_mp4(&scene, &target, |_, _| true).map_err(|error| error.0);
+        let _ = done.send(report);
+    });
+    let report = finished
+        .recv_timeout(std::time::Duration::from_secs(40))
+        .expect("the export hung")
+        .unwrap();
+    assert_eq!(report.frames, 150);
+    let info = probe(&output).unwrap();
+    assert!(info.has_audio);
+    assert!(
+        (info.duration.secs() - 5.0).abs() < 0.1,
+        "{}",
+        info.duration.secs()
+    );
+}

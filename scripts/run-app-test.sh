@@ -3,6 +3,7 @@
 # Runs reel-app's self-test on this Mac: scripted clicks on the real UI, with real measurements.
 #
 #   scripts/run-app-test.sh [project.reel]
+#   REEL_TEST=editor scripts/run-app-test.sh    Clicks through the whole editor instead.
 #
 # A window stays on top for about 20 seconds. Results land in target/app-test/.
 #
@@ -25,6 +26,7 @@ if ioreg -n Root -d1 | grep '"CGSSessionScreenIsLocked"=Yes' > /dev/null; then
 fi
 
 mkdir -p "$work" "$out"
+cargo build --release -p reel-recorder --manifest-path "$root/Cargo.toml"
 cargo build --release -p reel-app --features self-test --manifest-path "$root/Cargo.toml"
 
 project=${1:-$work/test.reel}
@@ -78,7 +80,7 @@ fi
 
 rm -rf "$app" "$results"
 mkdir -p "$app/Contents/MacOS" "$results"
-cp "$root/target/release/reel-app" "$app/Contents/MacOS/reel-app"
+cp "$root/target/release/reel-app" "$root/target/release/reel-recorder" "$app/Contents/MacOS/"
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,12 +96,12 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 PLIST
 codesign --force --sign - "$app"
 
-open -W -n "$app" --env REEL_SELF_TEST=1 --env "REEL_OUT=$results" \
+open -W -n "$app" --env "REEL_SELF_TEST=${REEL_TEST:-1}" --env "REEL_DATA=$work/data" --env "REEL_OUT=$results" \
     --stdout "$results/run.log" --stderr "$results/run.log" --args "$project"
 cat "$results/run.log"
 cp "$results"/* "$out"/
 
-if ! grep -q '"passed": true' "$out/report.json" 2>/dev/null; then
+if ! grep -Eq '"passed": ?true' "$out/report.json" 2>/dev/null; then
     echo "The app's self-test did not pass. See $out/report.json" >&2
     exit 1
 fi

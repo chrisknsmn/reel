@@ -416,10 +416,31 @@ pub enum ExportFormat {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExportQuality {
+    Low,
     Medium,
     Good,
     #[default]
     Source,
+}
+
+impl ExportQuality {
+    /// How much of the full size this renders at (§21).
+    #[must_use]
+    pub fn scale(self) -> f64 {
+        match self {
+            Self::Low => 0.6,
+            Self::Medium => 0.75,
+            Self::Good => 0.9,
+            Self::Source => 1.0,
+        }
+    }
+
+    /// A size at this quality, floored to even as H.264 needs (§39).
+    #[must_use]
+    pub fn scaled_size(self, size: (u32, u32)) -> (u32, u32) {
+        let even = |value: u32| ((f64::from(value) * self.scale()) as u32 & !1).max(2);
+        (even(size.0), even(size.1))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

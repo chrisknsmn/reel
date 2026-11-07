@@ -55,6 +55,7 @@ impl From<LoadError> for SessionError {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Session {
     pub editor: Editor,
     path: Option<PathBuf>,

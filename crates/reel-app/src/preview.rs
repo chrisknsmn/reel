@@ -55,6 +55,9 @@ pub struct Shared {
     wanted: AtomicI64,
     latest_frame: Mutex<Option<FrameSlot>>,
     latest_webcam: Mutex<Option<FrameSlot>>,
+    latest_background: Mutex<Option<FrameSlot>>,
+    /// The time on the timeline that goes with `wanted`.
+    wanted_timeline: AtomicI64,
     /// The newest edit that hasn't been shown yet.
     pending: Mutex<Option<Project>>,
     player: Mutex<Option<PlayerHandle>>,
@@ -218,6 +221,81 @@ fn sound_changed(old: &Project, new: &Project) -> bool {
         || old.media.source_tracks != new.media.source_tracks
 }
 
+/// How many values a waveform is reduced to, whatever the length of its sound.
+const PEAKS: usize = 2048;
+
+/// A sound's waveform, as a peak from 0 to 1 for each of a fixed number of steps. It's worked out once
+/// for each file, and files not yet loaded have an empty one.
+#[must_use]
+pub fn peaks(path: &Path) -> Arc<Vec<f32>> {
+    static CACHE: LazyLock<Mutex<HashMap<PathBuf, Arc<Vec<f32>>>>> =
+        LazyLock::new(Default::default);
+    let mut cache = CACHE.lock().expect("no thread panics while holding this");
+    if let Some(found) = cache.get(path) {
+        return found.clone();
+    }
+    let sound = SHARED
+        .sound
+        .lock()
+        .expect("no thread panics while holding this");
+    let pcm = sound
+        .files
+        .get(path)
+        .cloned()
+        .flatten()
+        .or_else(|| sound.video.clone());
+    drop(sound);
+    let Some(pcm) = pcm else {
+        return Arc::new(Vec::new());
+    };
+    let step = (pcm.samples.len() / PEAKS).max(1);
+    let result: Vec<f32> = pcm
+        .samples
+        .chunks(step)
+        .map(|chunk| {
+            let peak = chunk
+                .iter()
+                .map(|sample| sample.unsigned_abs())
+                .max()
+                .unwrap_or(0);
+            f32::from(peak) / 32768.0
+        })
+        .collect();
+    let result = Arc::new(result);
+    cache.insert(path.to_path_buf(), result.clone());
+    result
+}
+
+/// The stage's size in pixels, and the frame's place on it.
+#[must_use]
+pub fn stage_and_frame() -> Option<((u32, u32), reel_motion::layout::Rect)> {
+    let scene = SHARED.scene()?;
+    let stage = (f64::from(scene.stage.0), f64::from(scene.stage.1));
+    let video = (f64::from(scene.info.width), f64::from(scene.info.height));
+    let look = &scene.project.look;
+    let frame = reel_motion::layout::compute(stage, &look.padding, &look.crop, video).frame;
+    Some((scene.stage, frame))
+}
+
+/// The camera at a time.
+#[must_use]
+pub fn camera_at(time: TimelineTime) -> Option<reel_motion::camera::Camera> {
+    Some(SHARED.scene()?.layers.camera.sample(time))
+}
+
+/// The video's size in pixels.
+#[must_use]
+pub fn video_size() -> Option<(u32, u32)> {
+    let scene = SHARED.scene()?;
+    Some((scene.info.width, scene.info.height))
+}
+
+/// The recorded cursor, if there is one.
+#[must_use]
+pub fn cursor_track() -> Option<reel_motion::cursor::CursorTrack> {
+    SHARED.scene()?.cursor_track().cloned()
+}
+
 /// Shows an edited project. It's quick on this thread: the work happens on another, and if edits come
 /// faster than that can keep up, only the newest is worked on.
 pub fn update(project: Project) {
@@ -345,6 +423,10 @@ pub fn start(window: Arc<Window>) {
         .spawn(decode_thread)
         .expect("couldn't start the decode thread");
     std::thread::Builder::new()
+        .name("reel-background".into())
+        .spawn(background_thread)
+        .expect("couldn't start the background thread");
+    std::thread::Builder::new()
         .name("reel-edits".into())
         .spawn(update_thread)
         .expect("couldn't start the edits thread");
@@ -404,6 +486,26 @@ fn webcam_thread() {
         &SHARED.latest_webcam,
         |scene| scene.webcam.as_ref().map(|file| file.path.clone()),
         |scene, source| reel_motion::webcam::webcam_time(&scene.project.webcam, source),
+    );
+}
+
+/// A video background's frames, on its own clock: it runs on, looping, whatever the clips do.
+fn background_thread() {
+    decode_into(
+        &SHARED.latest_background,
+        |scene| {
+            scene
+                .background_video
+                .as_ref()
+                .map(|file| file.path.clone())
+        },
+        |scene, _| {
+            let time = TimelineTime(SHARED.wanted_timeline.load(Ordering::Relaxed));
+            scene
+                .background_video
+                .as_ref()
+                .map_or(SourceTime::ZERO, |file| file.time_at(time))
+        },
     );
 }
 
@@ -518,6 +620,7 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
         if let Some(scene) = &scene
             && let Some(source) = scene.project.timeline.to_source(time)
         {
+            SHARED.wanted_timeline.store(time.0, Ordering::Relaxed);
             SHARED.wanted.store(source.0, Ordering::Relaxed);
         }
 
@@ -657,6 +760,39 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                 )
             });
 
+            let background_frame = SHARED
+                .latest_background
+                .lock()
+                .expect("no thread panics while holding this")
+                .as_ref()
+                .filter(|slot| slot.generation == generation)
+                .map(|slot| slot.frame.clone());
+            let background_planes = background_frame
+                .as_ref()
+                .zip(scene.background_video.as_ref())
+                .map(|(frame, file)| {
+                    let (luma, chroma) = cache.wrap_nv12(&frame.buffer, file.size);
+                    let views = (
+                        luma.texture
+                            .create_view(&wgpu::TextureViewDescriptor::default()),
+                        chroma
+                            .texture
+                            .create_view(&wgpu::TextureViewDescriptor::default()),
+                    );
+                    (luma, chroma, views, file.size)
+                });
+            let mut frame_layers = scene.layers.at(time, webcam_source);
+            frame_layers.background_video =
+                background_planes.as_ref().map(|(_, _, views, size)| {
+                    (
+                        VideoSource::Nv12 {
+                            luma: &views.0,
+                            chroma: &views.1,
+                        },
+                        *size,
+                    )
+                });
+
             renderer.prepare_background(&scene.project.look, stage);
             renderer.encode(
                 &mut encoder,
@@ -670,7 +806,7 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
                     },
                     video_size,
                     camera: scene.layers.camera.sample(time),
-                    layers: Some(scene.layers.at(time, webcam_source)),
+                    layers: Some(frame_layers),
                 },
             );
             // The window may just have shrunk past where the DOM says the hole is.
@@ -700,8 +836,11 @@ fn render_thread(instance: &wgpu::Instance, surface: &wgpu::Surface<'_>) {
             if let Some((luma, chroma, _, _)) = webcam_planes {
                 in_flight.push_back((luma, chroma));
             }
-            // Three frames' worth, each with up to two videos.
-            while in_flight.len() > 6 {
+            if let Some((luma, chroma, _, _)) = background_planes {
+                in_flight.push_back((luma, chroma));
+            }
+            // Three frames' worth, each with up to three videos.
+            while in_flight.len() > 9 {
                 in_flight.pop_front();
             }
             #[cfg(feature = "self-test")]

@@ -31,7 +31,6 @@ pub enum Overlay {
     Export,
     Projects,
     Shortcuts,
-    SaveAs,
     Presets,
 }
 
@@ -50,6 +49,8 @@ pub struct Ed {
     /// Where the preview's clear area is, in CSS pixels.
     pub hole: Signal<(f64, f64, f64, f64)>,
     pub dark: Signal<bool>,
+    /// Whether something on the timeline is being dragged.
+    pub dragging: Signal<bool>,
 }
 
 impl Ed {

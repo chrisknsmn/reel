@@ -23,6 +23,8 @@ mod camera_preview;
 mod countdown;
 #[cfg(target_os = "macos")]
 mod editor;
+#[cfg(all(target_os = "macos", feature = "self-test"))]
+mod editor_test;
 #[cfg(target_os = "macos")]
 mod hotkey;
 #[cfg(target_os = "macos")]
@@ -61,6 +63,37 @@ static EDITOR_SHOWING: std::sync::atomic::AtomicBool = std::sync::atomic::Atomic
 #[cfg(target_os = "macos")]
 pub fn editor_is_showing() -> bool {
     EDITOR_SHOWING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Whether a theme setting means dark right now. System goes by the OS.
+#[cfg(target_os = "macos")]
+pub fn theme_is_dark(theme: reel_core::settings::Theme) -> bool {
+    use reel_core::settings::Theme as Setting;
+    match theme {
+        Setting::Light => false,
+        Setting::Dark => true,
+        Setting::System => dioxus::desktop::window().theme() == Theme::Dark,
+    }
+}
+
+/// Bytes as base64, for putting images in projects and on the page.
+#[cfg(target_os = "macos")]
+pub fn base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut text = String::with_capacity(bytes.len() * 4 / 3 + 4);
+    for chunk in bytes.chunks(3) {
+        let value = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        for index in 0..4 {
+            if index <= chunk.len() {
+                text.push(TABLE[((value >> (18 - index * 6)) & 63) as usize] as char);
+            } else {
+                text.push('=');
+            }
+        }
+    }
+    text
 }
 
 #[cfg(target_os = "macos")]
@@ -119,7 +152,7 @@ fn App() -> Element {
         }
         bar::open_window();
     });
-    let mut dark = use_signal(|| system_is_dark);
+    let dark = use_signal(|| system_is_dark);
 
     // Rust/UI's dark tokens and `dark:` variants key off a `dark` class on <html>.
     use_effect(move || {
@@ -129,25 +162,23 @@ fn App() -> Element {
         ));
     });
 
-    let toggle_theme = move |()| dark.toggle();
-
     rsx! {
         script { dangerous_inner_html: "{TOAST_JS}" }
-        Content { dark: dark(), toggle_theme }
+        Content { dark }
         ToastToaster {}
     }
 }
 
 #[cfg(target_os = "macos")]
 #[component]
-fn Content(dark: bool, toggle_theme: EventHandler<()>) -> Element {
-    rsx! { editor::Editor { dark, toggle_theme } }
+fn Content(dark: Signal<bool>) -> Element {
+    rsx! { editor::Editor { dark } }
 }
 
 #[cfg(not(target_os = "macos"))]
 #[component]
-fn Content(dark: bool, toggle_theme: EventHandler<()>) -> Element {
-    rsx! { Home { dark, toggle_theme } }
+fn Content(mut dark: Signal<bool>) -> Element {
+    rsx! { Home { dark: dark(), toggle_theme: move |()| dark.toggle() } }
 }
 
 /// What shows until a project is open.

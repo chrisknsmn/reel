@@ -36,12 +36,17 @@ fn send_mouse(window: &Window, x: f64, y: f64, down: bool) {
 
 /// Sends a click at a place in the window, measured up from its bottom edge.
 pub fn send_mouse_at(window: &Window, x: f64, from_bottom: f64, down: bool) {
-    let window = ns_window(window);
     let kind = if down {
         NSEventType::LeftMouseDown
     } else {
         NSEventType::LeftMouseUp
     };
+    send_mouse_kind(window, kind, x, from_bottom);
+}
+
+/// Sends any kind of mouse event at a place in the window, measured up from its bottom edge.
+pub fn send_mouse_kind(window: &Window, kind: NSEventType, x: f64, from_bottom: f64) {
+    let window = ns_window(window);
     let event = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
         kind,
         NSPoint::new(x, from_bottom),
@@ -51,20 +56,30 @@ pub fn send_mouse_at(window: &Window, x: f64, from_bottom: f64, down: bool) {
         None,
         0,
         1,
-        if down { 1.0 } else { 0.0 },
+        if kind == NSEventType::LeftMouseUp { 0.0 } else { 1.0 },
     )
     .expect("AppKit refused to build a mouse event");
     window.sendEvent(&event);
 }
 
 fn send_key(window: &Window, characters: &str, key_code: u16) {
+    send_key_with(window, characters, key_code, NSEventModifierFlags::empty());
+}
+
+/// Sends a key press with modifiers held.
+pub fn send_key_with(
+    window: &Window,
+    characters: &str,
+    key_code: u16,
+    flags: NSEventModifierFlags,
+) {
     let window = ns_window(window);
     let text = NSString::from_str(characters);
     for kind in [NSEventType::KeyDown, NSEventType::KeyUp] {
         let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
             kind,
             NSPoint::new(0.0, 0.0),
-            NSEventModifierFlags::empty(),
+            flags,
             NSProcessInfo::processInfo().systemUptime(),
             window.windowNumber(),
             None,
@@ -328,7 +343,7 @@ pub async fn run() {
     }
 
     // Space pauses, with the focus on the page.
-    eval("document.querySelector('.shell').focus(); return true;").await;
+    eval("document.getElementById('editor-root').focus(); return true;").await;
     sleep(50).await;
     send_key(&window, " ", 49);
     sleep(300).await;
@@ -338,15 +353,15 @@ pub async fn run() {
         format!("playing {}", SHARED.is_playing()),
     );
 
-    // Clicking along the scrub bar moves playback there.
-    if let Some((x, y, w, h)) = rect_of(".shell-scrub input").await {
+    // Clicking along the ruler moves playback there.
+    if let Some((x, y, w, h)) = rect_of("#timeline-ruler").await {
         let fraction = 0.5;
         click(&window, x + w * fraction, y + h / 2.0).await;
         sleep(600).await;
         let at = SHARED.position().secs();
         let total = crate::preview::duration().secs();
         check(
-            "clicking the scrub bar moves playback",
+            "clicking the ruler moves playback",
             (at / total - fraction).abs() < 0.05,
             format!("{at:.2} s of {total:.2} s"),
         );

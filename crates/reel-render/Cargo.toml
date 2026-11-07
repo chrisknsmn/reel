@@ -9,7 +9,9 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+color_quant = "1"
 cosmic-text.workspace = true
+gif = "0.14"
 image.workspace = true
 pollster.workspace = true
 reel-core.workspace = true

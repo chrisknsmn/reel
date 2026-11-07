@@ -6,6 +6,7 @@
 //! (§31).
 
 pub mod cursors;
+mod gif_frame;
 pub mod gradient;
 pub mod layers;
 mod overlay;
@@ -86,6 +87,7 @@ pub struct Renderer {
     background: Option<Background_>,
     overlay: overlay::Overlay,
     webcam_params: wgpu::Buffer,
+    video_background_params: wgpu::Buffer,
     /// Bundled wallpapers aren't shipped yet (D8), so this says which fell back to a colour.
     pub warnings: Vec<String>,
     project_folder: Option<std::path::PathBuf>,
@@ -234,6 +236,12 @@ impl Renderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let video_background_params = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 128,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let overlay = overlay::Overlay::new(&device, target_format);
         let placeholder_texture = make_texture(
             &device,
@@ -270,6 +278,7 @@ impl Renderer {
             background: None,
             overlay,
             webcam_params,
+            video_background_params,
             warnings: Vec::new(),
             project_folder: None,
         }
@@ -326,17 +335,25 @@ impl Renderer {
             .and_then(|layers| layers.camera_blur_from);
         self.write_frame_params(input, &layout, stage_f, blur_from);
 
+        let video_background = input
+            .layers
+            .as_ref()
+            .and_then(|layers| layers.background_video)
+            .map(|(source, size)| {
+                self.draw_video_background(encoder, source, size, stage, look.background_blur)
+            });
         let background = self
             .background
             .as_ref()
             .expect("prepare_background runs first");
+        let background_view = video_background.as_ref().unwrap_or(&background.view);
         let copy_bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.copy_pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&background.view),
+                    resource: wgpu::BindingResource::TextureView(background_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -385,6 +402,54 @@ impl Renderer {
             pass.set_bind_group(0, &bind, &[]);
             pass.draw(0..3, 0..1);
         }
+    }
+
+    /// Draws a frame of a video background, covering the stage, and blurs it if the look asks (§31).
+    /// A video changes every frame, so unlike other backgrounds this can't be kept from one to the next.
+    fn draw_video_background(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        source: VideoSource<'_>,
+        size: (u32, u32),
+        stage: (u32, u32),
+        blur: f64,
+    ) -> wgpu::TextureView {
+        let stage_f = (f64::from(stage.0), f64::from(stage.1));
+        let video = (f64::from(size.0), f64::from(size.1));
+        let cover = (stage_f.0 / video.0.max(1.0)).max(stage_f.1 / video.1.max(1.0));
+        let (width, height) = (video.0 * cover, video.1 * cover);
+        let kind = match source {
+            VideoSource::Rgba(_) => 0.0,
+            VideoSource::Nv12 { .. } => 1.0,
+        };
+        let mut values: Vec<f32> = vec![1.0, 0.0, 0.0, 0.0];
+        values.extend([0.0, 0.0, stage_f.0 as f32, stage_f.1 as f32]);
+        values.extend([
+            ((stage_f.0 - width) / 2.0) as f32,
+            ((stage_f.1 - height) / 2.0) as f32,
+            width as f32,
+            height as f32,
+        ]);
+        values.extend([0.0, kind, 1.0, 0.0]);
+        values.extend([0.0; 12]);
+        values.extend([1.0, 0.0, 0.0, 0.0]);
+        self.queue
+            .write_buffer(&self.video_background_params, 0, &uniform_bytes(&values));
+        let bind = self.frame_bind(&self.video_background_params, source);
+        let usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
+        let texture = make_texture(&self.device, stage, self.target_format, usage);
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        {
+            let mut pass = begin_pass(encoder, &view, wgpu::LoadOp::Clear(wgpu::Color::BLACK));
+            pass.set_pipeline(&self.frame_pipeline);
+            pass.set_bind_group(0, &bind, &[]);
+            pass.draw(0..3, 0..1);
+        }
+        if blur <= 0.0 {
+            return view;
+        }
+        let sigma = (blur * BLUR_FACTOR * stage_f.1 / 1080.0).max(0.5) as f32;
+        self.blurred_copy(encoder, &texture, stage, sigma)
     }
 
     fn frame_bind(&self, params: &wgpu::Buffer, video: VideoSource<'_>) -> wgpu::BindGroup {
@@ -723,11 +788,14 @@ impl Renderer {
                 }
             }
             Background::Video(media) => {
-                // Video backgrounds arrive with step 7.1. Until then, say so rather than go quiet.
-                self.warnings.push(format!(
-                    "Video backgrounds aren't supported yet, so {} isn't shown.",
-                    self.resolve(media).display()
-                ));
+                // Its frames arrive with each frame's input. This is what's behind them if they don't.
+                let path = self.resolve(media);
+                if !path.exists() {
+                    self.warnings.push(format!(
+                        "The background video wasn't found: {}",
+                        path.display()
+                    ));
+                }
                 solid(fallback, &self.placeholder)
             }
         }

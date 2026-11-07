@@ -269,6 +269,36 @@ impl Encoder {
         Ok(())
     }
 
+    fn input_is_ready(&self, input: &AVAssetWriterInput) -> Result<bool, MediaError> {
+        // SAFETY: documented property reads on objects this owns.
+        unsafe {
+            if self.writer.status() != AVAssetWriterStatus::Writing {
+                return Err(self.failure());
+            }
+            Ok(input.isReadyForMoreMediaData())
+        }
+    }
+
+    /// Whether another frame can go in right now. The writer interleaves its tracks, so this can stay
+    /// false until it's been given more sound.
+    ///
+    /// # Errors
+    /// Returns an error if the encoder has failed.
+    pub fn video_is_ready(&self) -> Result<bool, MediaError> {
+        self.input_is_ready(&self.video)
+    }
+
+    /// Whether more sound can go in right now. It's false too if this file has no sound.
+    ///
+    /// # Errors
+    /// Returns an error if the encoder has failed.
+    pub fn audio_is_ready(&self) -> Result<bool, MediaError> {
+        match &self.audio {
+            Some(input) => self.input_is_ready(input),
+            None => Ok(false),
+        }
+    }
+
     fn failure(&self) -> MediaError {
         // SAFETY: a documented property read.
         let reason = unsafe { self.writer.error() };
@@ -295,6 +325,15 @@ impl Encoder {
         }
         self.frames += 1;
         Ok(())
+    }
+
+    /// Says that there's no more sound to come. The writer holds video back until it has sound from a
+    /// little way past it, so the last frames won't go in until it knows the sound has ended.
+    pub fn finish_audio(&mut self) {
+        if let Some(input) = self.audio.take() {
+            // SAFETY: a documented call on an input this owns, which is never used again.
+            unsafe { input.markAsFinished() };
+        }
     }
 
     /// Adds the next stretch of sound, in interleaved stereo.

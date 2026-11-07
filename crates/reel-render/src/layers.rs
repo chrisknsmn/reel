@@ -67,6 +67,7 @@ impl SceneLayers {
             webcam: if self.webcam.enabled { webcam } else { None },
             camera_blur_from: self.camera_blur(time, camera),
             zoom: camera.scale,
+            background_video: None,
         }
     }
 
@@ -128,4 +129,6 @@ pub struct FrameLayers<'a> {
     pub camera_blur_from: Option<(Camera, u32)>,
     /// The camera's scale, which a webcam set to react to zoom shrinks with.
     pub zoom: f64,
+    /// The current frame of a video background.
+    pub background_video: Option<(VideoSource<'a>, (u32, u32))>,
 }

@@ -14,7 +14,6 @@ pub enum Format {
     Percent,
     Pixels,
     Milliseconds,
-    Times,
 }
 
 /// A value as a label shows it.
@@ -33,7 +32,6 @@ pub fn format_value(value: f64, step: f64, format: Format) -> String {
         Format::Percent => format!("{number}%"),
         Format::Pixels => format!("{number} px"),
         Format::Milliseconds => format!("{number} ms"),
-        Format::Times => format!("{number}×"),
     }
 }
 
@@ -247,7 +245,6 @@ mod tests {
         assert_eq!(format_value(20.0, 1.0, Format::Percent), "20%");
         assert_eq!(format_value(600.0, 10.0, Format::Milliseconds), "600 ms");
         assert_eq!(format_value(24.0, 1.0, Format::Pixels), "24 px");
-        assert_eq!(format_value(2.25, 0.05, Format::Times), "2.25×");
     }
 
     #[test]

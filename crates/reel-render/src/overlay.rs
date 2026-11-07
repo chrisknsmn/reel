@@ -851,7 +851,7 @@ impl Renderer {
     }
 
     /// A blurred copy of what's been drawn, recorded into the same commands so the order is right.
-    fn blurred_copy(
+    pub(crate) fn blurred_copy(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         scene: &wgpu::Texture,

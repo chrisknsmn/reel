@@ -130,22 +130,7 @@ fn recordings_folder(settings: &SettingsStore) -> PathBuf {
 /// A data URL for a thumbnail, since the webview can't read files from disk.
 fn thumbnail_url(path: &Path) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
-    const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut text = String::with_capacity(bytes.len() * 4 / 3 + 32);
-    text.push_str("data:image/png;base64,");
-    for chunk in bytes.chunks(3) {
-        let value = (u32::from(chunk[0]) << 16)
-            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
-            | u32::from(*chunk.get(2).unwrap_or(&0));
-        for index in 0..4 {
-            if index <= chunk.len() {
-                text.push(TABLE[((value >> (18 - index * 6)) & 63) as usize] as char);
-            } else {
-                text.push('=');
-            }
-        }
-    }
-    Some(text)
+    Some(format!("data:image/png;base64,{}", crate::base64(&bytes)))
 }
 
 /// Opens the bar's window.
@@ -211,6 +196,12 @@ pub fn Bar() -> Element {
             native::place_bottom_center(&window.window, 16.0);
         }
         native::set_capture_protected(&window.window, true);
+        // Each window has its own page, so each needs telling about the theme.
+        let theme = SettingsStore::open(&settings_path()).get().theme;
+        document::eval(&format!(
+            "document.documentElement.classList.toggle('dark', {});",
+            crate::theme_is_dark(theme)
+        ));
     });
 
     // Loads what was chosen last time, and looks for anything a crash left behind (§4, §59).

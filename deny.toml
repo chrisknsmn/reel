@@ -30,6 +30,11 @@ allow = [
     "Unlicense",
     "Zlib",
 ]
+# Only for this one crate: it's Mozilla's list of root certificates, used to check the download of a
+# speech model, and this is the permissive licence that data comes under.
+exceptions = [
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
+]
 
 [bans]
 # The Dioxus and GTK trees bring duplicates that we don't control.
