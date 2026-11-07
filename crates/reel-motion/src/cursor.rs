@@ -1,9 +1,9 @@
 //! Recorded cursor data (§28), which lives on the recording's clock.
 
 use reel_core::time::SourceTime;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Interaction {
     #[default]
@@ -15,7 +15,7 @@ pub enum Interaction {
     Mouseup,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum CursorShape {
     #[default]

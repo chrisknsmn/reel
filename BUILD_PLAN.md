@@ -235,44 +235,54 @@ The 4K project differs on purpose in one way. Recordly's export treats the webca
 
 **Goal:** reliable recording from the CLI, before any recording UI exists.
 
-- [ ] **4.1** Build `reel-recorder` as a separate process with start, pause, resume and stop commands over stdin and stdout (§30).
+- [x] **4.1** Build `reel-recorder` as a separate process with start, pause, resume and stop commands over stdin and stdout (§30).
 - [ ] **4.2** List displays and windows with thumbnails and the filtering in §3 and §27.
 - [ ] **4.3** Capture with ScreenCaptureKit to H.264, tagged BT.709, at 60 fps (§27). Exclude Reel's windows in the content filter rather than relying only on content protection (§47).
-- [ ] **4.4** Write fragmented MP4 while recording, so a crash still leaves a playable file, then finalise on stop (§58, §59).
+- [x] **4.4** Write fragmented MP4 while recording, so a crash still leaves a playable file, then finalise on stop (§58, §59).
 - [ ] **4.5** Keep system audio and mic as separate tracks aligned to the first frame (§27). The editor must use both, which fixes the mic loss in §58.
 - [ ] **4.6** Track the cursor: 33 ms samples, click events through a listen-only event tap, and cursor shapes (§28). Stream samples to disk rather than capping them in memory (§6).
 - [ ] **4.7** Record the webcam to a separate file with a sync offset (§5, §27).
-- [ ] **4.8** Implement pause and resume, and the warm-start countdown that removes startup lag (§6, §27).
-- [ ] **4.9** Add validation on stop, recovery after a crash, and a disk-space check (§6, §59).
+- [x] **4.8** Implement pause and resume, and the warm-start countdown that removes startup lag (§6, §27).
+- [x] **4.9** Add validation on stop, recovery after a crash, and a disk-space check (§6, §59).
 - [ ] **4.10** Handle permissions (§48). Ask only when a feature needs it, rather than on every launch.
-- [ ] **4.11** Implement retention according to D7.
+- [x] **4.11** Implement retention according to D7.
 
 **Exit criteria**
 - A 10-minute recording with screen, mic, system audio and webcam, paused twice, plays with drift under 40 ms.
 - Force-quitting the app mid-recording still leaves a playable file.
+
+**Result so far.** Everything after capture passes through a test pattern that flashes and beeps on one clock, run through the real recorder process (`crates/reel-recorder/tests/record.rs`). Ten minutes at 1080p60, paused twice: 36,003 frames, none dropped, 600.03 s long, and a flash and its beep at most 33.4 ms apart, or 11.7 ms in the last minute. `kill -9` leaves a video that plays and validates, plus sound and cursor data that `recover` saves. A deliberate 100 ms offset in the sound fails these tests, so they can catch drift.
+
+**Not tested yet, because it needs a person to grant permissions:** real capture with ScreenCaptureKit (4.2, 4.3), real system audio and mic clocks (4.5), click tracking (4.6), the webcam (4.7) and the permission prompts (4.10). All are written. `scripts/run-record-test.sh --ask` tests them. The test pattern's tracks all share one clock, so real drift between devices can only show up there.
+
+Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341` at a fragment boundary, 6 times out of 6 at 1080p60. With reordering off, it's 0 in 36. Recordings turn it off, and exports, which aren't fragmented, keep it.
 - Both mic and system audio can be heard separately in the result.
 
 ## Milestone 5: Launch bar
 
 **Goal:** the real recording flow, with no terminal involved.
 
-- [ ] **5.1** Build the launch bar window from the T3 result (§2, §47).
-- [ ] **5.2** Change the vendored Popover:
+- [x] **5.1** Build the launch bar window from the T3 result (§2, §47).
+- [x] **5.2** Change the vendored Popover:
   - A Rust-controlled `open` signal
   - One open at a time (§2)
   - Positioning that doesn't need CSS anchor positioning, which is unsupported before Safari 26 while the minimum is macOS 14 (§1)
   - Removal of its `document` listeners on unmount
-- [ ] **5.3** Grow the window when a popover opens, and shrink it when the popover closes.
+- [x] **5.3** Grow the window when a popover opens, and shrink it when the popover closes.
 - [ ] **5.4** Build the Source, Audio (with level meters, §27), Webcam, Countdown and More popovers (§2).
-- [ ] **5.5** Build the recording state: REC and PAUSED labels, timer, pause, stop, and cancel with a confirmation, which Recordly lacks (§2).
+- [x] **5.5** Build the recording state: REC and PAUSED labels, timer, pause, stop, and cancel with a confirmation, which Recordly lacks (§2).
 - [ ] **5.6** Add the source highlight, countdown and floating webcam preview windows (§5, §47).
-- [ ] **5.7** Handle finalising, then open the editor. Closing the editor brings the launch bar back (§48, §58).
+- [x] **5.7** Handle finalising, then open the editor. Closing the editor brings the launch bar back (§48, §58).
 - [ ] **5.8** Add a global hotkey to start and stop recording (§23, §59).
 
 **Exit criteria**
 - Launch, pick a source, record, stop and reach the editor without a terminal.
 - The launch bar can move to a second monitor and remembers its position (§2).
 - Nothing from Reel appears in the recording.
+
+**Result so far.** `scripts/run-bar-test.sh` clicks through the real bar on a test pattern: popovers grow the window without moving the bar, one opens at a time, and a recording runs through pause, the cancel confirmation and stop to the editor, and closing that brings the bar back. Step 5.2 replaced the vendored Popover with a small one owned by the bar, rather than changing it, because all it needs is the four things listed there.
+
+**Not tested yet:** the real source list and thumbnails (5.4), mic meters and the highlight and camera preview windows (5.6), which need permissions; the hotkey with a real key press (5.8), which is registered but which a test can't press without Accessibility; and moving the bar to a second monitor, which needs one. "Nothing from Reel appears in the recording" needs `scripts/run-record-test.sh`.
 
 ## Milestone 6: Editor shell and timeline
 

@@ -4,7 +4,7 @@
 //! clock runs on wall time. Either way, gaps between clips are skipped.
 
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -34,7 +34,7 @@ struct ClockState {
     epoch: Instant,
     /// Set when sound is really driving the clock.
     audio_driven: AtomicBool,
-    clips: Vec<Clip>,
+    clips: RwLock<Vec<Clip>>,
 }
 
 /// A handle any thread can read the time from.
@@ -48,6 +48,22 @@ pub struct Clock {
 const LONGEST_COAST: Duration = Duration::from_millis(100);
 
 impl Clock {
+    /// Changes the clips after an edit.
+    pub fn set_clips(&self, clips: Vec<Clip>) {
+        if let Ok(mut current) = self.state.clips.write() {
+            *current = clips;
+        }
+    }
+
+    fn with_clips<T>(&self, read: impl FnOnce(&[Clip]) -> T) -> T {
+        let clips = self
+            .state
+            .clips
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        read(&clips)
+    }
+
     #[must_use]
     pub fn new(clips: Vec<Clip>) -> Self {
         Self {
@@ -58,7 +74,7 @@ impl Clock {
                 stamp: AtomicI64::new(0),
                 epoch: Instant::now(),
                 audio_driven: AtomicBool::new(false),
-                clips,
+                clips: RwLock::new(clips),
             }),
         }
     }
@@ -92,16 +108,12 @@ impl Clock {
         }
         // On wall time. Gaps are skipped here, since no sound callback is doing it.
         let time = TimelineTime(position + elapsed);
-        skip_gaps(&state.clips, time).unwrap_or_else(|| self.end())
+        self.with_clips(|clips| skip_gaps(clips, time))
+            .unwrap_or_else(|| self.end())
     }
 
     fn end(&self) -> TimelineTime {
-        self.state
-            .clips
-            .iter()
-            .map(Clip::end)
-            .max()
-            .unwrap_or_default()
+        self.with_clips(|clips| clips.iter().map(Clip::end).max().unwrap_or_default())
     }
 
     #[must_use]
@@ -126,7 +138,8 @@ impl Clock {
 
     /// Moves playback. Anything past the end stops at the end, and a gap moves on to the next clip.
     pub fn seek(&self, time: TimelineTime, now: Instant) {
-        let target = skip_gaps(&self.state.clips, time.max(TimelineTime::ZERO))
+        let target = self
+            .with_clips(|clips| skip_gaps(clips, time.max(TimelineTime::ZERO)))
             .unwrap_or_else(|| self.end());
         self.state.position.store(target.0, Ordering::Relaxed);
         self.state
@@ -154,7 +167,34 @@ pub struct Player {
     stream: Option<cpal::Stream>,
 }
 
+/// Lets another thread change what's playing, while the stream itself stays where it was made.
+#[derive(Clone)]
+pub struct PlayerHandle {
+    clock: Clock,
+    mixer: Arc<Mutex<Mixer>>,
+}
+
+impl PlayerHandle {
+    /// Swaps in a new mix after an edit, carrying on from the same place.
+    pub fn update(&self, mut mixer: Mixer, clips: Vec<Clip>) {
+        self.clock.set_clips(clips);
+        mixer.seek(self.clock.now());
+        if let Ok(mut current) = self.mixer.lock() {
+            *current = mixer;
+        }
+    }
+}
+
 impl Player {
+    /// A handle for changing what's playing from another thread.
+    #[must_use]
+    pub fn handle(&self) -> PlayerHandle {
+        PlayerHandle {
+            clock: self.clock.clone(),
+            mixer: self.mixer.clone(),
+        }
+    }
+
     /// Sets up playback, paused at the start.
     #[must_use]
     pub fn new(mixer: Mixer, clips: Vec<Clip>) -> Self {

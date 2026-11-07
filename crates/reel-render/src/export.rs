@@ -66,6 +66,8 @@ pub struct Scene {
     pub layers: SceneLayers,
     /// The webcam's footage, if it's turned on and can be read.
     pub webcam: Option<WebcamFile>,
+    /// The recorded cursor, kept so that an edit doesn't have to read it again.
+    cursor: Option<CursorTrack>,
 }
 
 /// A webcam recording that's ready to decode.
@@ -73,6 +75,24 @@ pub struct Scene {
 pub struct WebcamFile {
     pub path: PathBuf,
     pub size: (u32, u32),
+}
+
+fn measure(
+    project: &Project,
+    info: &VideoInfo,
+    cursor: Option<&CursorTrack>,
+) -> ((u32, u32), SceneLayers) {
+    let video = (f64::from(info.width), f64::from(info.height));
+    let stage = layout::stage_size(&project.look.aspect_ratio, video, &project.look.crop);
+    let stage_f = (f64::from(stage.0), f64::from(stage.1));
+    let frame = layout::compute(stage_f, &project.look.padding, &project.look.crop, video).frame;
+    let mask = Rect {
+        x: frame.x / stage_f.0,
+        y: frame.y / stage_f.1,
+        width: frame.width / stage_f.0,
+        height: frame.height / stage_f.1,
+    };
+    (stage, SceneLayers::build(project, &mask, cursor))
 }
 
 impl Scene {
@@ -89,19 +109,8 @@ impl Scene {
             )));
         }
         let info = probe(&video_path)?;
-        let video = (f64::from(info.width), f64::from(info.height));
-        let stage = layout::stage_size(&project.look.aspect_ratio, video, &project.look.crop);
-        let stage_f = (f64::from(stage.0), f64::from(stage.1));
-        let frame =
-            layout::compute(stage_f, &project.look.padding, &project.look.crop, video).frame;
-        let mask = Rect {
-            x: frame.x / stage_f.0,
-            y: frame.y / stage_f.1,
-            width: frame.width / stage_f.0,
-            height: frame.height / stage_f.1,
-        };
         let cursor = load_cursor(&project, folder);
-        let layers = SceneLayers::build(&project, &mask, cursor.as_ref());
+        let (stage, layers) = measure(&project, &info, cursor.as_ref());
         let webcam = load_webcam(&project, folder);
         Ok(Self {
             project,
@@ -111,7 +120,30 @@ impl Scene {
             stage,
             layers,
             webcam,
+            cursor,
         })
+    }
+
+    /// The same video with an edited project. This skips reading files it already has, which makes
+    /// it quick enough to do while a slider is moving. A changed webcam file does get read.
+    #[must_use]
+    pub fn with_project(&self, project: Project) -> Self {
+        let (stage, layers) = measure(&project, &self.info, self.cursor.as_ref());
+        let webcam = if project.webcam == self.project.webcam {
+            self.webcam.clone()
+        } else {
+            load_webcam(&project, self.folder.as_deref())
+        };
+        Self {
+            project,
+            folder: self.folder.clone(),
+            video_path: self.video_path.clone(),
+            info: self.info,
+            stage,
+            layers,
+            webcam,
+            cursor: self.cursor.clone(),
+        }
     }
 }
 

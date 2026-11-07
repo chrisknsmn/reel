@@ -10,11 +10,12 @@ use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2_av_foundation::{
     AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus,
-    AVFileTypeMPEG4, AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey,
-    AVVideoCodecTypeH264, AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPrimariesKey,
-    AVVideoColorPropertiesKey, AVVideoCompressionPropertiesKey, AVVideoHeightKey,
-    AVVideoMaxKeyFrameIntervalKey, AVVideoTransferFunction_ITU_R_709_2, AVVideoTransferFunctionKey,
-    AVVideoWidthKey, AVVideoYCbCrMatrix_ITU_R_709_2, AVVideoYCbCrMatrixKey,
+    AVFileTypeMPEG4, AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAllowFrameReorderingKey,
+    AVVideoAverageBitRateKey, AVVideoCodecKey, AVVideoCodecTypeH264,
+    AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPrimariesKey, AVVideoColorPropertiesKey,
+    AVVideoCompressionPropertiesKey, AVVideoHeightKey, AVVideoMaxKeyFrameIntervalKey,
+    AVVideoTransferFunction_ITU_R_709_2, AVVideoTransferFunctionKey, AVVideoWidthKey,
+    AVVideoYCbCrMatrix_ITU_R_709_2, AVVideoYCbCrMatrixKey,
 };
 use objc2_core_audio_types::{
     AudioStreamBasicDescription, kAudioFormatFlagIsPacked, kAudioFormatFlagIsSignedInteger,
@@ -86,7 +87,7 @@ impl Encoder {
             .map_err(|error| MediaError(format!("{} can't be written: {error}", path.display())))?;
             writer.setShouldOptimizeForNetworkUse(true);
 
-            let video = Self::video_input(&settings);
+            let video = Self::video_input(&settings, true);
             video.setExpectsMediaDataInRealTime(false);
             if !writer.canAddInput(&video) {
                 return Err(MediaError(
@@ -111,7 +112,7 @@ impl Encoder {
             );
 
             let (audio, audio_format) = if settings.audio {
-                let input = Self::audio_input();
+                let input = Self::audio_input(AAC_BITRATE);
                 input.setExpectsMediaDataInRealTime(false);
                 if !writer.canAddInput(&input) {
                     return Err(MediaError(
@@ -152,16 +153,24 @@ impl Encoder {
         }
     }
 
-    fn video_input(settings: &EncoderSettings) -> Retained<AVAssetWriterInput> {
+    pub(super) fn video_input(
+        settings: &EncoderSettings,
+        allow_reordering: bool,
+    ) -> Retained<AVAssetWriterInput> {
         // SAFETY: documented keys with their documented value types, and these constants always exist.
         unsafe {
             let bitrate = NSNumber::new_u32(settings.bitrate);
             let keyframes = NSNumber::new_u32(settings.keyframe_interval);
+            let reordering = NSNumber::new_bool(allow_reordering);
             let compression = dictionary(&[
                 (AVVideoAverageBitRateKey.expect("exists"), bitrate.as_ref()),
                 (
                     AVVideoMaxKeyFrameIntervalKey.expect("exists"),
                     keyframes.as_ref(),
+                ),
+                (
+                    AVVideoAllowFrameReorderingKey.expect("exists"),
+                    reordering.as_ref(),
                 ),
             ]);
             // BT.709, tagged so players show the colours as they were composited (§39).
@@ -203,13 +212,13 @@ impl Encoder {
         }
     }
 
-    fn audio_input() -> Retained<AVAssetWriterInput> {
+    pub(super) fn audio_input(bitrate: u32) -> Retained<AVAssetWriterInput> {
         // SAFETY: documented keys with their documented value types, and this constant always exists.
         unsafe {
             let format = NSNumber::new_u32(AAC);
             let rate = NSNumber::new_f64(f64::from(SAMPLE_RATE));
             let channels = NSNumber::new_usize(CHANNELS);
-            let bitrate = NSNumber::new_u32(AAC_BITRATE);
+            let bitrate = NSNumber::new_u32(bitrate);
             let output = dictionary(&[
                 (&NSString::from_str("AVFormatIDKey"), format.as_ref()),
                 (&NSString::from_str("AVSampleRateKey"), rate.as_ref()),
@@ -399,7 +408,7 @@ impl Encoder {
 
 /// With network optimisation on, AVAssetWriter moves the index to the front through a temporary file
 /// named `<output>.sb-<random>`, and doesn't always clean it up before the process ends.
-fn remove_safe_save_leftovers(path: &Path) {
+pub(super) fn remove_safe_save_leftovers(path: &Path) {
     let (Some(folder), Some(name)) = (path.parent(), path.file_name()) else {
         return;
     };
@@ -425,7 +434,7 @@ impl TimeAt for CMTime {
     }
 }
 
-fn pcm_format() -> Result<CFRetained<CMAudioFormatDescription>, MediaError> {
+pub(super) fn pcm_format() -> Result<CFRetained<CMAudioFormatDescription>, MediaError> {
     let bytes_per_frame = (CHANNELS * 2) as u32;
     let mut description = AudioStreamBasicDescription {
         mSampleRate: f64::from(SAMPLE_RATE),

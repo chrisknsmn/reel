@@ -14,9 +14,27 @@ mod hooks;
 mod ui;
 
 #[cfg(target_os = "macos")]
+mod bar;
+#[cfg(all(target_os = "macos", feature = "self-test"))]
+mod bar_test;
+#[cfg(target_os = "macos")]
+mod camera_preview;
+#[cfg(target_os = "macos")]
+mod countdown;
+#[cfg(target_os = "macos")]
 mod editor;
 #[cfg(target_os = "macos")]
+mod hotkey;
+#[cfg(target_os = "macos")]
+mod links;
+#[cfg(target_os = "macos")]
+mod meter;
+#[cfg(target_os = "macos")]
+mod native;
+#[cfg(target_os = "macos")]
 mod preview;
+#[cfg(target_os = "macos")]
+mod recording;
 #[cfg(all(target_os = "macos", feature = "self-test"))]
 mod self_test;
 
@@ -31,23 +49,56 @@ const SHELL_CSS: &str = include_str!("../assets/shell.css");
 
 const LOGO_SVG: &str = include_str!("../../../assets/logo.svg");
 
+/// Everything a window's page needs, since each window has its own.
+pub fn head() -> String {
+    format!("<style>{TAILWIND_CSS}{TOAST_CSS}{SHELL_CSS}</style>")
+}
+
+/// Whether the editor window is showing, which decides what closing the bar does (§2).
+#[cfg(target_os = "macos")]
+static EDITOR_SHOWING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "macos")]
+pub fn editor_is_showing() -> bool {
+    EDITOR_SHOWING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(target_os = "macos")]
+pub fn set_editor_showing(showing: bool) {
+    EDITOR_SHOWING.store(showing, std::sync::atomic::Ordering::Relaxed);
+}
+
 fn main() {
     let window = WindowBuilder::new()
         .with_title("Reel")
+        .with_min_inner_size(LogicalSize::new(800.0, 600.0))
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
-    let head = format!("<style>{TAILWIND_CSS}{TOAST_CSS}{SHELL_CSS}</style>");
 
     #[cfg(target_os = "macos")]
-    let window = window.with_transparent(true);
+    let window = {
+        let has_file = std::env::args()
+            .skip(1)
+            .any(|argument| !argument.starts_with('-'));
+        set_editor_showing(has_file);
+        window.with_transparent(true)
+    };
 
-    let config = Config::new().with_window(window).with_custom_head(head);
+    let config = Config::new().with_window(window).with_custom_head(head());
 
     // The preview's surface has to exist before the webview does, so its layer ends up underneath.
     #[cfg(target_os = "macos")]
     let config = config
         .with_as_child_window()
+        .with_close_behaviour(dioxus::desktop::WindowCloseBehaviour::WindowHides)
         .with_background_color((0, 0, 0, 0))
-        .with_on_window(|window, _dom| preview::start(window));
+        .with_on_window(|window, _dom| {
+            // The editor stays hidden until there's a project to show (§48). A window that starts out
+            // hidden never loads its page, so this one starts see-through, and hides once it's loaded.
+            if !editor_is_showing() {
+                native::ns_window(&window).setAlphaValue(0.0);
+            }
+            preview::start(window);
+        });
 
     dioxus::LaunchBuilder::desktop()
         .with_cfg(config)
@@ -57,6 +108,17 @@ fn main() {
 #[component]
 fn App() -> Element {
     let system_is_dark = use_hook(|| dioxus::desktop::window().theme() == Theme::Dark);
+
+    #[cfg(target_os = "macos")]
+    use_hook(|| {
+        hotkey::register();
+        if !editor_is_showing() {
+            let window = dioxus::desktop::window();
+            window.set_visible(false);
+            native::ns_window(&window.window).setAlphaValue(1.0);
+        }
+        bar::open_window();
+    });
     let mut dark = use_signal(|| system_is_dark);
 
     // Rust/UI's dark tokens and `dark:` variants key off a `dark` class on <html>.

@@ -1,6 +1,7 @@
 //! AVFoundation decoding and encoding, chosen by T2 (`docs/spikes.md`).
 
 mod encode;
+pub mod record;
 mod sound;
 mod video;
 

@@ -15,6 +15,7 @@ publish = false
 
 [workspace.dependencies]
 # Reel's own crates.
+reel-capture = { path = "crates/reel-capture", version = "0.1.0" }
 reel-core = { path = "crates/reel-core", version = "0.1.0" }
 reel-media = { path = "crates/reel-media", version = "0.1.0" }
 reel-motion = { path = "crates/reel-motion", version = "0.1.0" }

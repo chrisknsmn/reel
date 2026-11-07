@@ -1,5 +1,12 @@
 //! The editor's shell around the preview. Milestone 6 builds this out.
 
+#[allow(dead_code)]
+mod controls;
+#[allow(dead_code)]
+mod math;
+#[allow(dead_code)]
+mod state;
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -14,6 +21,7 @@ use reel_core::timeline::Timeline;
 use reel_media::macos::probe;
 
 use crate::Home;
+use crate::links::{self, ToBar, ToEditor};
 use crate::preview::{self, PixelRect, SHARED};
 use crate::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::ui::slider::Slider;
@@ -146,12 +154,48 @@ pub fn Editor(dark: bool, toggle_theme: EventHandler<()>) -> Element {
     let mut duration = use_signal(|| Micros::ZERO);
 
     use_wry_event_handler(|event, _| {
-        if let Event::WindowEvent {
-            event: WindowEvent::Resized(size),
-            ..
-        } = event
-        {
-            SHARED.set_surface_size(size.width, size.height);
+        let own_id = dioxus::desktop::window().id();
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                window_id,
+                ..
+            } if *window_id == own_id => {
+                SHARED.set_surface_size(size.width, size.height);
+            }
+            // Closing hides the window, so that its surface stays ready. The bar comes back (§48).
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                window_id,
+                ..
+            } if *window_id == own_id => {
+                preview::pause();
+                crate::set_editor_showing(false);
+                links::tell_bar(ToBar::EditorClosed);
+            }
+            _ => {}
+        }
+    });
+
+    // Opens what the launch bar sends over, such as a recording that's just finished.
+    use_future(move || async move {
+        let mut inbox = links::listen_as_editor();
+        while let Some(ToEditor::Open(path)) = inbox.recv().await {
+            let window = dioxus::desktop::window();
+            if !crate::editor_is_showing() {
+                crate::native::size_as_editor(&window.window);
+            }
+            crate::set_editor_showing(true);
+            window.set_visible(true);
+            crate::native::bring_forward(&window.window);
+            message.set(None);
+            match open_file(path, None).await {
+                Ok(()) => {
+                    duration.set(preview::duration());
+                    project_open.set(true);
+                }
+                Err(error) => message.set(Some(error)),
+            }
         }
     });
 
@@ -168,7 +212,7 @@ pub fn Editor(dark: bool, toggle_theme: EventHandler<()>) -> Element {
             }
         }
         #[cfg(feature = "self-test")]
-        if std::env::var_os("REEL_SELF_TEST").is_some() {
+        if std::env::var("REEL_SELF_TEST").as_deref() == Ok("1") {
             crate::self_test::run().await;
         }
     });

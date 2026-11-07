@@ -38,3 +38,89 @@ html, body, #main { background: transparent !important; height: 100%; margin: 0;
 .shell-scrub { flex: 1; display: flex; align-items: center; }
 .shell-scrub > *, .shell-volume > * { width: 100%; }
 .shell-volume { width: 6rem; display: flex; align-items: center; }
+
+/* The launch bar. Its window only ever covers what's visible, so nothing here needs to pass clicks on. */
+.bar-root { position: fixed; inset: 0; font: 13px -apple-system, system-ui, sans-serif; color: var(--foreground); }
+.bar {
+  position: fixed; left: 8px; right: 8px; bottom: 8px; height: 56px; border-radius: 16px;
+  display: flex; align-items: center; gap: 4px; padding: 0 8px;
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+  user-select: none; -webkit-user-select: none; cursor: default;
+}
+.bar-handle { width: 16px; height: 32px; border-radius: 6px; cursor: grab; flex: none;
+  background-image: radial-gradient(var(--muted-foreground) 1px, transparent 1.5px);
+  background-size: 6px 6px; opacity: 0.6; }
+.bar-spacer { flex: 1; }
+.bar-button {
+  height: 36px; min-width: 36px; padding: 0 8px; border-radius: 10px; border: 0; background: transparent;
+  color: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; cursor: default;
+}
+.bar-button:hover { background: var(--accent); }
+.bar-button[data-open="true"] { background: var(--accent); color: #3d8bff; }
+.bar-button[disabled] { opacity: 0.4; }
+.bar-button svg { width: 16px; height: 16px; flex: none; }
+.bar-source { max-width: 150px; }
+.bar-source span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar-record {
+  height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #f43f5e; color: #fff; font: inherit;
+  font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: default;
+}
+.bar-record:hover { filter: brightness(1.08); }
+.bar-record[disabled] { opacity: 0.5; }
+.bar-record svg { width: 14px; height: 14px; fill: currentColor; }
+.bar-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 0 8px; }
+.bar-dot { width: 8px; height: 8px; border-radius: 50%; background: #f43f5e; animation: bar-blink 1.2s infinite; }
+.bar-dot[data-paused="true"] { background: #fbbf24; animation: none; }
+@keyframes bar-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .bar-dot { animation: none; } }
+.bar-resume { color: #34d399; }
+.bar-finalizing { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+.bar-finalizing small { display: block; color: var(--muted-foreground); font-size: 11px; }
+.bar-message { color: var(--destructive); padding: 0 8px; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+.bar-pop {
+  position: fixed; bottom: 72px; width: 300px; max-height: 392px; overflow-y: auto; border-radius: 12px; padding: 10px;
+  background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35); display: flex; flex-direction: column; gap: 4px;
+}
+.bar-pop h3 { margin: 6px 4px 2px; font-size: 11px; font-weight: 600; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em; }
+.bar-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 0; background: transparent;
+  color: inherit; font: inherit; text-align: left; width: 100%; cursor: default;
+}
+.bar-row:hover { background: var(--accent); }
+.bar-row[data-selected="true"] { background: color-mix(in srgb, #2563eb 25%, transparent); }
+.bar-row > span:first-of-type { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar-note { color: var(--muted-foreground); font-size: 12px; padding: 6px 8px; }
+.bar-thumb { width: 72px; height: 44px; border-radius: 4px; object-fit: cover; background: var(--muted); flex: none; }
+.bar-meter { display: inline-flex; gap: 2px; align-items: flex-end; flex: none; }
+.bar-meter i { width: 3px; height: 10px; border-radius: 1px; background: var(--muted); }
+.bar-meter i[data-on="green"] { background: #2563eb; }
+.bar-meter i[data-on="yellow"] { background: #fbbf24; }
+.bar-meter i[data-on="red"] { background: #f43f5e; }
+.bar-check { width: 14px; flex: none; color: #3d8bff; }
+.bar-check svg { width: 14px; height: 14px; }
+.bar-confirm { display: flex; gap: 8px; justify-content: flex-end; padding: 6px 4px 2px; }
+
+.countdown-root { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+.countdown-card {
+  width: 180px; height: 180px; border-radius: 28px; display: flex; align-items: center; justify-content: center;
+  background: rgb(20 20 22 / 0.85); color: #fff; font: 700 96px -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums;
+}
+
+.highlight-root {
+  position: fixed; inset: 0; border-radius: 10px; padding: 3px; overflow: hidden; animation: highlight-fade 1.7s forwards;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.highlight-root::before {
+  content: ""; position: absolute; inset: -60%;
+  background: conic-gradient(rgb(99 96 245), rgb(99 96 245 / 0.1), rgb(99 96 245));
+  animation: highlight-sweep 1.2s linear infinite;
+}
+@keyframes highlight-sweep { to { transform: rotate(1turn); } }
+@keyframes highlight-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

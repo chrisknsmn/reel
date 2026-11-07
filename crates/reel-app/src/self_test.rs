@@ -28,10 +28,15 @@ fn make_key(window: &Window) {
 }
 
 fn send_mouse(window: &Window, x: f64, y: f64, down: bool) {
-    let window = ns_window(window);
-    let height = window
+    let height = ns_window(window)
         .contentView()
         .map_or(0.0, |view| view.frame().size.height);
+    send_mouse_at(window, x, height - y, down);
+}
+
+/// Sends a click at a place in the window, measured up from its bottom edge.
+pub fn send_mouse_at(window: &Window, x: f64, from_bottom: f64, down: bool) {
+    let window = ns_window(window);
     let kind = if down {
         NSEventType::LeftMouseDown
     } else {
@@ -39,7 +44,7 @@ fn send_mouse(window: &Window, x: f64, y: f64, down: bool) {
     };
     let event = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
         kind,
-        NSPoint::new(x, height - y),
+        NSPoint::new(x, from_bottom),
         NSEventModifierFlags::empty(),
         NSProcessInfo::processInfo().systemUptime(),
         window.windowNumber(),
@@ -99,19 +104,24 @@ unsafe extern "C" {
     fn CFRelease(object: *const std::ffi::c_void);
 }
 
-struct Capture {
-    width: usize,
-    height: usize,
+pub struct Capture {
+    pub width: usize,
+    pub height: usize,
     rgba: Vec<u8>,
 }
 
 impl Capture {
-    fn pixel(&self, x: usize, y: usize) -> [u8; 3] {
+    pub fn pixel(&self, x: usize, y: usize) -> [u8; 4] {
         let at = (y * self.width + x) * 4;
-        [self.rgba[at], self.rgba[at + 1], self.rgba[at + 2]]
+        [
+            self.rgba[at],
+            self.rgba[at + 1],
+            self.rgba[at + 2],
+            self.rgba[at + 3],
+        ]
     }
 
-    fn save(&self, path: &std::path::Path) {
+    pub fn save(&self, path: &std::path::Path) {
         if let Ok(file) = std::fs::File::create(path) {
             let mut encoder = png::Encoder::new(
                 std::io::BufWriter::new(file),
@@ -127,7 +137,7 @@ impl Capture {
     }
 }
 
-fn capture(window: &Window) -> Option<Capture> {
+pub fn capture(window: &Window) -> Option<Capture> {
     let number = u32::try_from(ns_window(window).windowNumber()).ok()?;
     let null_rect = NSRect::new(
         NSPoint::new(f64::INFINITY, f64::INFINITY),

@@ -5,7 +5,7 @@
 //! drawable is pinned to the top left and only one frame queues up, so resizing stays aligned. Frames
 //! reach the GPU with no copying.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
@@ -17,11 +17,11 @@ use dioxus::desktop::tao::window::Window;
 use objc2::runtime::AnyObject;
 use objc2::{class, msg_send};
 use objc2_foundation::{NSArray, NSString};
-use reel_core::project::{Project, SourceTrack};
+use reel_core::project::Project;
 use reel_core::time::{Micros, SourceTime, TimelineTime};
 use reel_media::macos::{Decoder, Frame, read_pcm};
 use reel_media::mix::{AddedAudio, Mixer, Pcm, source_audio};
-use reel_media::player::{Clock, Player};
+use reel_media::player::{Clock, Player, PlayerHandle};
 use reel_render::apple::{TextureCache, WrappedTexture};
 use reel_render::export::Scene;
 use reel_render::{FrameInput, Renderer, VideoSource};
@@ -55,6 +55,10 @@ pub struct Shared {
     wanted: AtomicI64,
     latest_frame: Mutex<Option<FrameSlot>>,
     latest_webcam: Mutex<Option<FrameSlot>>,
+    /// The newest edit that hasn't been shown yet.
+    pending: Mutex<Option<Project>>,
+    player: Mutex<Option<PlayerHandle>>,
+    sound: Mutex<SoundCache>,
     /// Something changed that a paused picture needs to redraw for.
     dirty: AtomicBool,
     #[cfg(feature = "self-test")]
@@ -161,29 +165,40 @@ pub fn set_volume(volume: f64) {
 pub struct Prepared {
     scene: Arc<Scene>,
     mixer: Mixer,
+    sound: SoundCache,
 }
 
-fn load_mixer(scene: &Scene) -> Mixer {
+/// Decoded sound, kept so that editing a project doesn't decode it again.
+#[derive(Clone, Default)]
+struct SoundCache {
+    video: Option<Pcm>,
+    files: HashMap<PathBuf, Option<Pcm>>,
+}
+
+impl SoundCache {
+    fn file(&mut self, path: PathBuf) -> Option<Pcm> {
+        self.files
+            .entry(path)
+            .or_insert_with_key(|path| read_pcm(path).ok().flatten())
+            .clone()
+    }
+}
+
+fn build_mixer(scene: &Scene, cache: &mut SoundCache) -> Mixer {
     let folder = scene.folder.as_deref();
     let project = &scene.project;
-    let video_audio: Option<Pcm> = if scene.info.has_audio {
-        read_pcm(&scene.video_path).ok().flatten()
-    } else {
-        None
-    };
-    let load = |track: &SourceTrack| {
-        track
-            .file
-            .as_ref()
-            .and_then(|file| read_pcm(&file.resolve(folder)).ok().flatten())
-    };
-    let sources = source_audio(&project.media.source_tracks, video_audio.as_ref(), load);
+    let video_audio = cache.video.clone();
+    let sources = source_audio(
+        &project.media.source_tracks,
+        video_audio.as_ref(),
+        |track| cache.file(track.file.as_ref()?.resolve(folder)),
+    );
     let added: Vec<AddedAudio> = project
         .timeline
         .audio
         .iter()
         .filter_map(|item| {
-            let pcm = read_pcm(&item.file.resolve(folder)).ok().flatten()?;
+            let pcm = cache.file(item.file.resolve(folder))?;
             Some(AddedAudio {
                 start: item.start,
                 end: item.end,
@@ -196,23 +211,105 @@ fn load_mixer(scene: &Scene) -> Mixer {
     Mixer::new(project, sources, added)
 }
 
+/// Whether an edit changes what's heard.
+fn sound_changed(old: &Project, new: &Project) -> bool {
+    old.timeline.clips != new.timeline.clips
+        || old.timeline.audio != new.timeline.audio
+        || old.media.source_tracks != new.media.source_tracks
+}
+
+/// Shows an edited project. It's quick on this thread: the work happens on another, and if edits come
+/// faster than that can keep up, only the newest is worked on.
+pub fn update(project: Project) {
+    *SHARED
+        .pending
+        .lock()
+        .expect("no thread panics while holding this") = Some(project);
+}
+
+/// Applies edits as they arrive.
+fn update_thread() {
+    loop {
+        let next = SHARED
+            .pending
+            .lock()
+            .expect("no thread panics while holding this")
+            .take();
+        let Some(project) = next else {
+            std::thread::sleep(Duration::from_millis(4));
+            continue;
+        };
+        let Some(scene) = SHARED.scene() else {
+            continue;
+        };
+        let hears_it_differently = sound_changed(&scene.project, &project);
+        let new_scene = Arc::new(scene.with_project(project));
+        if hears_it_differently {
+            let handle = SHARED
+                .player
+                .lock()
+                .expect("no thread panics while holding this")
+                .clone();
+            let mut cache = SHARED
+                .sound
+                .lock()
+                .expect("no thread panics while holding this")
+                .clone();
+            let mixer = build_mixer(&new_scene, &mut cache);
+            *SHARED
+                .sound
+                .lock()
+                .expect("no thread panics while holding this") = cache;
+            if let Some(handle) = handle {
+                handle.update(mixer, new_scene.project.timeline.clips.clone());
+            }
+        }
+        *SHARED
+            .scene
+            .lock()
+            .expect("no thread panics while holding this") = Some(new_scene);
+        SHARED.mark_dirty();
+    }
+}
+
 /// Does the slow part of opening a project. This belongs off the UI thread.
 ///
 /// # Errors
 /// Returns why the project can't be opened, in words for the user.
 pub fn prepare(project: Project, folder: Option<&Path>) -> Result<Prepared, String> {
     let scene = Scene::new(project, folder).map_err(|error| error.0)?;
-    let mixer = load_mixer(&scene);
+    let mut sound = SoundCache {
+        video: if scene.info.has_audio {
+            read_pcm(&scene.video_path).ok().flatten()
+        } else {
+            None
+        },
+        files: HashMap::new(),
+    };
+    let mixer = build_mixer(&scene, &mut sound);
     Ok(Prepared {
         scene: Arc::new(scene),
         mixer,
+        sound,
     })
 }
 
 /// Starts showing a prepared project. This has to run on the UI thread.
 pub fn show(prepared: Prepared) {
-    let Prepared { scene, mixer } = prepared;
+    let Prepared {
+        scene,
+        mixer,
+        sound,
+    } = prepared;
     let player = Player::new(mixer, scene.project.timeline.clips.clone());
+    *SHARED
+        .player
+        .lock()
+        .expect("no thread panics while holding this") = Some(player.handle());
+    *SHARED
+        .sound
+        .lock()
+        .expect("no thread panics while holding this") = sound;
     *SHARED
         .clock
         .lock()
@@ -247,6 +344,10 @@ pub fn start(window: Arc<Window>) {
         .name("reel-decode".into())
         .spawn(decode_thread)
         .expect("couldn't start the decode thread");
+    std::thread::Builder::new()
+        .name("reel-edits".into())
+        .spawn(update_thread)
+        .expect("couldn't start the edits thread");
     std::thread::Builder::new()
         .name("reel-webcam".into())
         .spawn(webcam_thread)
