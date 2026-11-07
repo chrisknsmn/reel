@@ -43,7 +43,7 @@ dioxus-ssr = "=0.7.9"
 icons = { version = "0.19", features = ["dioxus"] }
 tw_merge = "0.1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 strum = { version = "0.28", features = ["derive"] }
 
 # Tests only.

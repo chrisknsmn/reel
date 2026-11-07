@@ -594,6 +594,22 @@ pub async fn run(ed: Ed) {
     overlay.set(crate::editor::CLOSED);
     sleep(100).await;
 
+    // A file that can't be opened says so here, and leaves what's open alone.
+    crate::links::tell_editor(crate::links::ToEditor::Open(
+        "/no/such/folder/video.mp4".into(),
+    ));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut said = (ed.notice)().unwrap_or_default();
+    while !said.contains("couldn't be opened") && Instant::now() < deadline {
+        sleep(50).await;
+        said = (ed.notice)().unwrap_or_default();
+    }
+    check(
+        "a file that can't be opened says so, with the project still open",
+        said.contains("couldn't be opened") && ed.project().is_some() && window.is_visible(),
+        said,
+    );
+
     click(&window, "#open-export").await;
     check(
         "the export panel opens",

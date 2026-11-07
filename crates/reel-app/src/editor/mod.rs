@@ -35,7 +35,6 @@ use reel_core::timeline::{AnnotationContent, ArrowDirection, AudioItem, Timeline
 use reel_media::macos::{probe, read_pcm};
 use reel_motion::suggest::suggest_zooms;
 
-use crate::Home;
 use crate::links::{self, ToBar, ToEditor};
 use crate::preview::{self, PixelRect, SHARED};
 use crate::recording::support_folder;
@@ -428,6 +427,18 @@ fn apply_theme(mut dark: Signal<bool>) {
     dark.set(crate::theme_is_dark(theme));
 }
 
+/// Puts the editor on screen. This only happens with a project to show, so the window never appears
+/// empty (§48).
+fn show_editor() {
+    let window = dioxus::desktop::window();
+    if !crate::editor_is_showing() {
+        crate::native::size_as_editor(&window.window);
+    }
+    crate::set_editor_showing(true);
+    window.set_visible(true);
+    crate::native::bring_forward(&window.window);
+}
+
 #[component]
 pub fn Editor(dark: Signal<bool>) -> Element {
     let session = use_signal(|| None::<Session>);
@@ -444,7 +455,6 @@ pub fn Editor(dark: Signal<bool>) -> Element {
         dark,
         dragging: Signal::new(false),
     });
-    let mut message = use_signal(|| None::<String>);
     let mut missing = use_signal(|| None::<MissingVideo>);
     let shortcuts = use_signal(|| {
         SettingsStore::open(&settings_path())
@@ -459,6 +469,8 @@ pub fn Editor(dark: Signal<bool>) -> Element {
 
     let mut finish_open = move |opened: Result<Opened, String>| match opened {
         Ok(Opened::Ready(new_session, prepared)) => {
+            show_editor();
+            links::tell_bar(ToBar::EditorOpened);
             preview::show(prepared);
             let total = new_session.editor.project().timeline.duration();
             if let Some(path) = new_session.path() {
@@ -471,12 +483,18 @@ pub fn Editor(dark: Signal<bool>) -> Element {
             ed.position.set(Micros::ZERO);
             ed.overlay.set(OpenOverlay::None);
             missing.set(None);
-            message.set(None);
         }
         Ok(Opened::Missing(found)) => {
+            show_editor();
+            links::tell_bar(ToBar::EditorOpened);
             missing.set(Some(*found));
         }
-        Err(error) => message.set(Some(error)),
+        Err(error) if crate::editor_is_showing() => {
+            ed.notice
+                .set(Some(format!("That couldn't be opened: {error}")));
+        }
+        // With no editor on screen, the bar is what's there to say so.
+        Err(error) => links::tell_bar(ToBar::OpenFailed(error)),
     };
 
     use_wry_event_handler(move |event, _| {
@@ -541,14 +559,6 @@ pub fn Editor(dark: Signal<bool>) -> Element {
     use_future(move || async move {
         let mut inbox = links::listen_as_editor();
         while let Some(ToEditor::Open(path)) = inbox.recv().await {
-            let window = dioxus::desktop::window();
-            if !crate::editor_is_showing() {
-                crate::native::size_as_editor(&window.window);
-            }
-            crate::set_editor_showing(true);
-            window.set_visible(true);
-            crate::native::bring_forward(&window.window);
-            message.set(None);
             // What's open is saved first, so opening something else can't lose it (§20).
             let saved = ed
                 .session
@@ -557,6 +567,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
                 .filter(|session| session.is_dirty() && session.path().is_some())
                 .map(Session::save);
             if let Some(Err(error)) = saved {
+                show_editor();
                 ed.notice
                     .set(Some(format!("The open project couldn't be saved: {error}")));
                 continue;
@@ -671,19 +682,6 @@ pub fn Editor(dark: Signal<bool>) -> Element {
         }
     });
 
-    let choose_file = move |_| {
-        let picked = rfd::FileDialog::new()
-            .set_title("Open a video or project")
-            .add_filter(
-                "Videos and projects",
-                &["mp4", "mov", "m4v", "reel", "recordly", "openscreen"],
-            )
-            .pick_file();
-        if let Some(path) = picked {
-            links::tell_editor(ToEditor::Open(path));
-        }
-    };
-
     // Dropping a video or project anywhere opens it (§20).
     let on_drop = move |event: DragEvent| {
         event.prevent_default();
@@ -694,8 +692,11 @@ pub fn Editor(dark: Signal<bool>) -> Element {
 
     if let Some(lost) = missing() {
         return rsx! {
-            Home { dark: dark(), toggle_theme: move |()| dark.toggle(),
+            main { class: "home",
                 p { class: "home-message", role: "alert", "This project's video isn't where it was: {lost.path.display()}" }
+                if let Some(text) = (ed.notice)() {
+                    p { class: "home-message", role: "status", id: "notice", "{text}" }
+                }
                 Button {
                     id: "relink-video",
                     onclick: move |_| {
@@ -712,22 +713,6 @@ pub fn Editor(dark: Signal<bool>) -> Element {
                         });
                     },
                     "Find the video…"
-                }
-            }
-        };
-    }
-
-    if ed.session.read().is_none() {
-        return rsx! {
-            div {
-                class: "home-drop",
-                ondragover: move |event| event.prevent_default(),
-                ondrop: on_drop,
-                Home { dark: dark(), toggle_theme: move |()| dark.toggle(),
-                    if let Some(text) = message() {
-                        p { class: "home-message", role: "alert", "{text}" }
-                    }
-                    Button { id: "open-file", onclick: choose_file, "Open a video or project" }
                 }
             }
         };

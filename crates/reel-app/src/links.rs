@@ -12,30 +12,49 @@ pub enum ToEditor {
     Open(PathBuf),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ToBar {
     /// The editor has closed, so the bar comes back (§48).
     EditorClosed,
+    /// The editor is on screen with something open, so the bar gets out of the way.
+    EditorOpened,
+    /// A file couldn't be opened, and the editor isn't on screen to say so.
+    OpenFailed(String),
     /// The countdown was cancelled with a click or Esc.
     CancelCountdown,
 }
 
-static EDITOR: Mutex<Option<UnboundedSender<ToEditor>>> = Mutex::new(None);
-static BAR: Mutex<Option<UnboundedSender<ToBar>>> = Mutex::new(None);
+/// A window's inbox. What's sent before the window is listening waits for it, since a file given at
+/// launch can finish opening before the bar's window has loaded.
+enum Inbox<T> {
+    Waiting(Vec<T>),
+    Listening(UnboundedSender<T>),
+}
 
-fn store<T>(slot: &Mutex<Option<UnboundedSender<T>>>) -> UnboundedReceiver<T> {
+static EDITOR: Mutex<Inbox<ToEditor>> = Mutex::new(Inbox::Waiting(Vec::new()));
+static BAR: Mutex<Inbox<ToBar>> = Mutex::new(Inbox::Waiting(Vec::new()));
+
+fn store<T>(slot: &Mutex<Inbox<T>>) -> UnboundedReceiver<T> {
     let (send, receive) = unbounded_channel();
     if let Ok(mut slot) = slot.lock() {
-        *slot = Some(send);
+        if let Inbox::Waiting(waiting) = &mut *slot {
+            for message in waiting.drain(..) {
+                let _ = send.send(message);
+            }
+        }
+        *slot = Inbox::Listening(send);
     }
     receive
 }
 
-fn post<T>(slot: &Mutex<Option<UnboundedSender<T>>>, message: T) {
-    if let Ok(slot) = slot.lock()
-        && let Some(send) = slot.as_ref()
-    {
-        let _ = send.send(message);
+fn post<T>(slot: &Mutex<Inbox<T>>, message: T) {
+    if let Ok(mut slot) = slot.lock() {
+        match &mut *slot {
+            Inbox::Waiting(waiting) => waiting.push(message),
+            Inbox::Listening(send) => {
+                let _ = send.send(message);
+            }
+        }
     }
 }
 

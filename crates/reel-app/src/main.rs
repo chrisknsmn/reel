@@ -44,6 +44,7 @@ mod recording;
 #[cfg(all(target_os = "macos", feature = "self-test"))]
 mod self_test;
 
+#[cfg(not(target_os = "macos"))]
 use ui::button::{Button, ButtonVariant};
 use ui::toast::ToastToaster;
 
@@ -53,6 +54,7 @@ const TOAST_CSS: &str = include_str!("../assets/rust-ui/toast.css");
 const TOAST_JS: &str = include_str!("../assets/rust-ui/toast.js");
 const SHELL_CSS: &str = include_str!("../assets/shell.css");
 
+#[cfg(not(target_os = "macos"))]
 const LOGO_SVG: &str = include_str!("../../../assets/logo.svg");
 
 /// The pages only ever show what the app gives them. They can't load anything from the internet, which
@@ -125,13 +127,7 @@ fn main() {
         .with_inner_size(LogicalSize::new(1280.0, 800.0));
 
     #[cfg(target_os = "macos")]
-    let window = {
-        let has_file = std::env::args()
-            .skip(1)
-            .any(|argument| !argument.starts_with('-'));
-        set_editor_showing(has_file);
-        window.with_transparent(true)
-    };
+    let window = window.with_transparent(true);
 
     let config = Config::new().with_window(window).with_custom_head(head());
 
@@ -146,9 +142,7 @@ fn main() {
         .with_on_window(|window, _dom| {
             // The editor stays hidden until there's a project to show (§48). A window that starts out
             // hidden never loads its page, so this one starts see-through, and hides once it's loaded.
-            if !editor_is_showing() {
-                native::ns_window(&window).setAlphaValue(0.0);
-            }
+            native::ns_window(&window).setAlphaValue(0.0);
             preview::start(window);
         });
 
@@ -165,12 +159,16 @@ fn App() -> Element {
     use_hook(|| {
         logs::prune();
         hotkey::register();
-        if !editor_is_showing() {
-            let window = dioxus::desktop::window();
-            window.set_visible(false);
-            native::ns_window(&window.window).setAlphaValue(1.0);
-        }
         bar::open_window();
+    });
+    // Dioxus shows the window straight after the first render, so hiding it has to wait until then.
+    #[cfg(target_os = "macos")]
+    use_future(|| async {
+        let window = dioxus::desktop::window();
+        if !editor_is_showing() {
+            window.set_visible(false);
+        }
+        native::ns_window(&window.window).setAlphaValue(1.0);
     });
     let dark = use_signal(|| system_is_dark);
 
@@ -201,7 +199,8 @@ fn Content(mut dark: Signal<bool>) -> Element {
     rsx! { Home { dark: dark(), toggle_theme: move |()| dark.toggle() } }
 }
 
-/// What shows until a project is open.
+/// A placeholder for the platforms that don't have the editor yet. macOS never shows this.
+#[cfg(not(target_os = "macos"))]
 #[component]
 pub fn Home(dark: bool, toggle_theme: EventHandler<()>, children: Element) -> Element {
     let logo = use_hook(themed_logo);
@@ -232,11 +231,12 @@ pub fn Home(dark: bool, toggle_theme: EventHandler<()>, children: Element) -> El
 
 /// The logo file is black on transparent. Drawing it in the current text colour keeps it visible
 /// in both themes without a second copy of the artwork.
+#[cfg(not(target_os = "macos"))]
 pub fn themed_logo() -> String {
     LOGO_SVG.replace(r#"fill="black""#, r#"fill="currentColor""#)
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "macos")))]
 mod tests {
     use super::*;
 

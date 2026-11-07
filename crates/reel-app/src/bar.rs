@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use dioxus::desktop::tao::dpi::LogicalSize;
 use dioxus::desktop::tao::event::{Event as TaoEvent, WindowEvent};
+use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
 use dioxus::desktop::{Config, WindowBuilder, WindowCloseBehaviour, use_wry_event_handler};
 use dioxus::prelude::*;
 use icons::{Check, Ellipsis, Mic, Minus, Monitor, Pause, Play, Square, Timer, Video, X};
@@ -139,6 +140,8 @@ pub fn open_window() {
         .with_title("Reel")
         .with_decorations(false)
         .with_transparent(true)
+        // The native shadow outlines the bar a second time, around its CSS border.
+        .with_has_shadow(false)
         .with_resizable(false)
         .with_always_on_top(true)
         .with_visible_on_all_workspaces(true)
@@ -170,6 +173,7 @@ pub fn Bar() -> Element {
     let open = use_signal(|| None::<Pop>);
     let mut mode = use_signal(|| Mode::Idle);
     let mut message = use_signal(|| None::<String>);
+    let mut open_failure = use_signal(|| None::<String>);
     let source = use_signal(test_source);
     let mut sources = use_signal(Sources::default);
     let mut devices = use_signal(Devices::default);
@@ -322,10 +326,11 @@ pub fn Bar() -> Element {
                         process.wait();
                     }
                     let duration = Micros::from_ms(duration_ms);
+                    elapsed.set(Duration::ZERO);
                     match recording::save_project_for(&output, duration) {
                         Ok(project) => {
-                            let window = dioxus::desktop::window();
-                            window.set_visible(false);
+                            // The bar keeps saying it's preparing until the editor is on screen.
+                            mode.set(Mode::Finalizing);
                             links::tell_editor(ToEditor::Open(project));
                             let store = SettingsStore::open(&settings_path());
                             if store.get().retention_enabled {
@@ -333,10 +338,11 @@ pub fn Bar() -> Element {
                                     recording::apply_retention(&recordings_folder(&store), &output);
                             }
                         }
-                        Err(error) => message.set(Some(error)),
+                        Err(error) => {
+                            message.set(Some(error));
+                            mode.set(Mode::Idle);
+                        }
                     }
-                    elapsed.set(Duration::ZERO);
-                    mode.set(Mode::Idle);
                 }
                 Event::Failed { message: text } => {
                     if let Some(process) = recorder.write().take() {
@@ -357,6 +363,25 @@ pub fn Bar() -> Element {
         while let Some(message_in) = inbox.recv().await {
             match message_in {
                 ToBar::EditorClosed => dioxus::desktop::window().set_visible(true),
+                ToBar::EditorOpened => {
+                    // A file opened from Finder mid-recording mustn't take away the stop button.
+                    if matches!(mode(), Mode::Idle | Mode::Finalizing) {
+                        dioxus::desktop::window().set_visible(false);
+                        mode.set(Mode::Idle);
+                    }
+                    if message() == open_failure() {
+                        message.set(None);
+                    }
+                }
+                ToBar::OpenFailed(text) => {
+                    dioxus::desktop::window().set_visible(true);
+                    set_open(open, None);
+                    if mode() == Mode::Finalizing {
+                        mode.set(Mode::Idle);
+                    }
+                    open_failure.set(Some(text.clone()));
+                    message.set(Some(text));
+                }
                 ToBar::CancelCountdown => {
                     if let Some(process) = recorder.write().take() {
                         process.discard();
@@ -1074,7 +1099,6 @@ fn MoreList(hide_from_recording: Signal<bool>, folder: Signal<Option<PathBuf>>) 
                     .add_filter("Videos and projects", &["mp4", "mov", "m4v", "reel", "recordly", "openscreen"])
                     .pick_file();
                 if let Some(path) = picked {
-                    dioxus::desktop::window().set_visible(false);
                     links::tell_editor(ToEditor::Open(path));
                 }
             },

@@ -11,6 +11,7 @@ use dioxus::prelude::*;
 use serde_json::{Value, json};
 
 use crate::bar::{BAR_HEIGHT, OPEN_HEIGHT};
+use crate::links::{self, ToEditor};
 use crate::native::{self, ns_window};
 use crate::preview;
 use crate::recording;
@@ -70,6 +71,54 @@ async fn wait_for(id: &str, seconds: u64) -> bool {
     false
 }
 
+/// How many of the app's windows are on screen besides the bar. This asks AppKit, rather than the app's
+/// own idea of what's showing, because Dioxus shows windows by itself as they load.
+fn windows_showing_besides(bar: &Window) -> usize {
+    let main_thread = objc2::MainThreadMarker::new().expect("the test runs on the main thread");
+    let bar_number = ns_window(bar).windowNumber();
+    objc2_app_kit::NSApplication::sharedApplication(main_thread)
+        .windows()
+        .iter()
+        .filter(|other| {
+            other.isVisible() && other.alphaValue() > 0.0 && other.windowNumber() != bar_number
+        })
+        .count()
+}
+
+/// Closes the editor the way its close button does.
+fn close_editor(bar: &Window) {
+    let main_thread = objc2::MainThreadMarker::new().expect("the test runs on the main thread");
+    let bar_number = ns_window(bar).windowNumber();
+    let windows = objc2_app_kit::NSApplication::sharedApplication(main_thread).windows();
+    if let Some(editor) = windows
+        .iter()
+        .find(|other| other.isVisible() && other.windowNumber() != bar_number)
+    {
+        editor.performClose(None);
+    }
+}
+
+/// How much of the screen's work area the editor takes up, across and down.
+fn editor_share_of_screen(bar: &Window) -> Option<(f64, f64)> {
+    let main_thread = objc2::MainThreadMarker::new().expect("the test runs on the main thread");
+    let bar_number = ns_window(bar).windowNumber();
+    let windows = objc2_app_kit::NSApplication::sharedApplication(main_thread).windows();
+    let editor = windows
+        .iter()
+        .find(|other| other.isVisible() && other.windowNumber() != bar_number)?;
+    let area = editor.screen()?.visibleFrame();
+    let size = editor.contentLayoutRect().size;
+    Some((size.width / area.size.width, size.height / area.size.height))
+}
+
+async fn bar_message() -> String {
+    eval("const e = document.querySelector('.bar-message'); return e ? e.textContent : '';")
+        .await
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
 fn opaque_pixels(image: &crate::self_test::Capture) -> f64 {
     let mut solid = 0_u64;
     let mut total = 0_u64;
@@ -101,6 +150,14 @@ pub async fn run() {
     };
     native::bring_forward(&window);
     sleep(1000).await;
+
+    // The app opens as just the bar, with no other window around it (§48).
+    let others = windows_showing_besides(&window);
+    check(
+        "only the bar is on screen at launch",
+        others == 0,
+        format!("{others} other windows"),
+    );
 
     // Capture protection blanks the window in captures too, including this test's own, so check that
     // it's on and then turn it off to take pictures.
@@ -274,10 +331,25 @@ pub async fn run() {
         (3.0..6.5).contains(&length),
         format!("{length:.2} s"),
     );
+    sleep(300).await;
     check(
         "the bar has hidden",
         !ns_window(&window).isVisible(),
         String::new(),
+    );
+    let others = windows_showing_besides(&window);
+    check(
+        "and the editor is on screen",
+        others == 1,
+        format!("{others} other windows"),
+    );
+    let share = editor_share_of_screen(&window);
+    check(
+        "at 85% of the screen",
+        share.is_some_and(|(across, down)| {
+            (across - 0.85).abs() < 0.02 && (down - 0.85).abs() < 0.02
+        }),
+        format!("{share:?}"),
     );
 
     // The saved project has its tracks linked up.
@@ -295,16 +367,7 @@ pub async fn run() {
     );
 
     // Closing the editor, the way its close button does, brings the bar back (§48).
-    if let Some(main_thread) = objc2::MainThreadMarker::new() {
-        let windows = objc2_app_kit::NSApplication::sharedApplication(main_thread).windows();
-        let bar_number = ns_window(&window).windowNumber();
-        if let Some(editor) = windows
-            .iter()
-            .find(|other| other.isVisible() && other.windowNumber() != bar_number)
-        {
-            editor.performClose(None);
-        }
-    }
+    close_editor(&window);
     sleep(500).await;
     check(
         "closing the editor brings the bar back",
@@ -313,7 +376,7 @@ pub async fn run() {
     );
     check(
         "and the editor is hidden",
-        !crate::editor_is_showing(),
+        !crate::editor_is_showing() && windows_showing_besides(&window) == 0,
         String::new(),
     );
     check(
@@ -345,6 +408,48 @@ pub async fn run() {
         "a place off every screen isn't",
         !native::place_at(&window, -90_000.0, -90_000.0),
         String::new(),
+    );
+
+    // A file that can't be opened says why on the bar, and no empty window comes up for it.
+    links::tell_editor(ToEditor::Open(PathBuf::from("/no/such/folder/video.mp4")));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut said = bar_message().await;
+    while said.is_empty() && Instant::now() < deadline {
+        sleep(50).await;
+        said = bar_message().await;
+    }
+    check(
+        "a file that can't be opened says so on the bar",
+        !said.is_empty(),
+        said,
+    );
+    check(
+        "and no window comes up for it",
+        ns_window(&window).isVisible() && windows_showing_besides(&window) == 0,
+        String::new(),
+    );
+
+    // Opening something that works hides the bar, and takes that message away with it.
+    if let Some(project) = &project {
+        links::tell_editor(ToEditor::Open(project.clone()));
+    }
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while windows_showing_besides(&window) == 0 && Instant::now() < deadline {
+        sleep(50).await;
+    }
+    sleep(300).await;
+    check(
+        "a project opens from the bar's menu path",
+        windows_showing_besides(&window) == 1 && !ns_window(&window).isVisible(),
+        String::new(),
+    );
+    close_editor(&window);
+    sleep(500).await;
+    let said = bar_message().await;
+    check(
+        "and the old message has gone",
+        said.is_empty() && ns_window(&window).isVisible(),
+        said,
     );
 
     let report =
