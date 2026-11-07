@@ -3,7 +3,7 @@
 Reel is a Rust rewrite of the Recordly screen recorder and editor, with its UI built on [Rust/UI](https://rust-ui.com/).
 
 - **Written:** 6 Nov 2026
-- **Status:** Milestones 0, 2 and 3 are done, apart from the hand checks in step 0.4. In Milestone 1, T2, T3 and T4 pass, and T1 and T5 pass on macOS but haven't been run on Windows or Linux. The renderer half of Milestone 7 is built, without its panels.
+- **Status:** Milestones 0, 2 and 3 are done, apart from the hand checks in step 0.4. In Milestone 1, T2, T3 and T4 pass, and T1 and T5 pass on macOS but haven't been run on Windows or Linux. Milestones 4 to 9 are built on macOS. Their tests pass, except that real capture is untested because it needs permissions a person has to grant (`scripts/run-record-test.sh --ask`). Each milestone says what's left. Milestone 10 is partly done, and 11 and 12 aren't started.
 - **Spec:** `Recordly-Feature-List.md`. In this plan, `§N` means section N of that file.
 - **Logo:** `assets/logo.svg`
 
@@ -288,19 +288,19 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 
 **Goal:** a usable basic editor.
 
-- [ ] **6.1** Build the layout in §7: header, icon rail, settings panel, preview, timeline.
+- [x] **6.1** Build the layout in §7: header, icon rail, settings panel, preview, timeline.
 - [ ] **6.2** Keep the wgpu surface aligned with the clear area in the webview through resizes and DPI changes. Start from the settings that worked in T1 (`docs/spikes.md`). DPI changes are still untested.
-- [ ] **6.3** Build shared controls: a labelled slider with reset (§7), and a colour picker with swatches and hex, since Rust/UI has none.
+- [x] **6.3** Build shared controls: a labelled slider with reset (§7), and a colour picker with swatches and hex, since Rust/UI has none.
 - [ ] **6.4** Change the other vendored components according to T5:
   - Focus trap in Dialog
   - Arrow-key navigation in Dropdown Menu, Select and Context Menu (§52)
   - Action button on Toast (§21)
   - Light, Dark and System theme, stored in Rust settings (§22)
   - A change handler on Switch, and a working `close_context_menu()`, the only `wasm32`-only branch in the vendored components
-- [ ] **6.5** Build the timeline from the T4 result: rows, ruler, zoom and pan, playhead, keyframe markers, hover ghosts (§14). Rust/UI has no timeline, and its Drag and Drop does nothing on desktop, so this is custom.
-- [ ] **6.6** Add clip editing: split, trim, move, speed, mute and delete, including from the keyboard (§15, §58). Clamp partly overlapping items on trim rather than deleting them, and add real reordering.
-- [ ] **6.7** Build transport controls (§17) and shortcuts with the rebind dialog (§23). Save, Save As and Open must work on every OS.
-- [ ] **6.8** Build the project browser, rename, unsaved-change prompts and relinking of missing media (§20, §59).
+- [x] **6.5** Build the timeline from the T4 result: rows, ruler, zoom and pan, playhead, keyframe markers, hover ghosts (§14). Rust/UI has no timeline, and its Drag and Drop does nothing on desktop, so this is custom.
+- [x] **6.6** Add clip editing: split, trim, move, speed, mute and delete, including from the keyboard (§15, §58). Clamp partly overlapping items on trim rather than deleting them, and add real reordering.
+- [x] **6.7** Build transport controls (§17) and shortcuts with the rebind dialog (§23). Save, Save As and Open must work on every OS.
+- [x] **6.8** Build the project browser, rename, unsaved-change prompts and relinking of missing media (§20, §59).
 - [ ] **6.9** Support dropping files on the app and opening `.reel` files from the OS (§20, §58).
 
 **Exit criteria**
@@ -308,37 +308,56 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 - Undo and redo work across every edit made.
 - The whole flow works with the keyboard where §23 says it should.
 
+**Result.** `REEL_TEST=editor scripts/run-app-test.sh` runs 56 checks with real clicks, keys and drags, and all pass. Saving is checked by reading the file back, and keys go through the application so that they meet the menu as real ones do. Not tested: quitting and reopening in one run, and a DPI change (6.2), which needs a second display.
+
+- **6.2** isn't ticked: resizes are tested and DPI changes aren't.
+- **6.4** isn't ticked, because the vendored Dialog, Dropdown Menu, Context Menu and Select aren't used. The editor's menus and dialogs are its own, and have no focus trap or arrow-key navigation yet. Those belong with the accessibility pass in 10.4.
+- **6.8** has no thumbnails in the project browser. Unsaved-change prompts aren't needed, because everything autosaves and opening something else saves first. A save that fails says so.
+- **6.9** isn't ticked: dropping files and opening `.reel` files from Finder are written, and neither has been tried, since a script can't drag from Finder.
+
 ## Milestone 7: Effects and overlays
 
 **Goal:** the features that make Reel's output look good.
 
-- [ ] **7.1** Build the Scene panel (§8) and bundled assets (D8). Make crop undoable.
-- [ ] **7.2** Build the Cursor panel and engine: spring, bounce, sway, click effects and loop mode (§9, §34).
-- [ ] **7.3** Build zooms: add, auto and manual modes, Classic mode, connected zooms, auto-suggestions (§10, §33). Fix the wand's enable rule (§58).
-- [ ] **7.4** Build the webcam overlay, with crop, positioning, reaction to zoom, and dragging on the preview (§11, §35).
-- [ ] **7.5** Build annotations: text, image, arrow, blur (§13). Draw them in wgpu, with invisible DOM handles for selecting and dragging.
-- [ ] **7.6** Build audio editing: added tracks, per-track volume, waveforms (§14, §16, §37). Label ×1.35 as a boost rather than "Normalize", or implement real loudness normalisation.
-- [ ] **7.7** Build presets and motion presets (§19).
+- [x] **7.1** Build the Scene panel (§8) and bundled assets (D8). Make crop undoable.
+- [x] **7.2** Build the Cursor panel and engine: spring, bounce, sway, click effects and loop mode (§9, §34).
+- [x] **7.3** Build zooms: add, auto and manual modes, Classic mode, connected zooms, auto-suggestions (§10, §33). Fix the wand's enable rule (§58).
+- [x] **7.4** Build the webcam overlay, with crop, positioning, reaction to zoom, and dragging on the preview (§11, §35).
+- [x] **7.5** Build annotations: text, image, arrow, blur (§13). Draw them in wgpu, with invisible DOM handles for selecting and dragging.
+- [x] **7.6** Build audio editing: added tracks, per-track volume, waveforms (§14, §16, §37). Label ×1.35 as a boost rather than "Normalize", or implement real loudness normalisation.
+- [x] **7.7** Build presets and motion presets (§19).
 
 **Exit criteria**
 - A sample project using every effect looks the same in preview and in rendered frames.
 - The same project matches the M0 baseline closely by eye.
 - Everything saves, reloads and can be undone.
 
+**Result.** Preview and export go through one renderer, and match at 32–33 dB with every effect on. Side by side with Recordly's own exports, the frame, zoom path and colours match closely. The one difference at 4K is deliberate, and described under Milestone 3.
+
+- **7.1:** there are no bundled wallpapers, because of D8. There are 12 gradients of Reel's own, and Recordly's 24 images and one video aren't replaced.
+- **7.4:** the webcam's crop is sliders, not the inline live editor in §11. Dragging the bubble is new.
+- **7.5:** annotations can't be dragged between rows, and custom Google Fonts aren't there. Asking the internet for fonts doesn't fit the content policy in 10.5.
+
 ## Milestone 8: Full export
 
 **Goal:** dependable output for everything from M7.
 
-- [ ] **8.1** Build the export panel: format, quality with final size, encoding mode and frame rate (§21).
-- [ ] **8.2** Implement the bitrate formula, keyframe intervals, colour tags and constant frame rate (§39).
-- [ ] **8.3** Implement trim and speed time mapping (§41).
-- [ ] **8.4** Render audio: mixing, speed with pitch preserved, soft limiter, AAC (§42). Keep mute correct after trims, and use each clip's own track settings (§58).
-- [ ] **8.5** Build GIF export (§43). "Loop off" must play once (§58), and frames must stream rather than all sitting in memory.
-- [ ] **8.6** Add progress, render speed, cancel, a disk-space check, temp files, atomic final move and Save Again (§21, §44). Cancelling must not report an error (§58).
-- [ ] **8.7** Make sure a feature is never silently dropped from an export (§38). It either renders or the export reports why it can't.
+- [x] **8.1** Build the export panel: format, quality with final size, encoding mode and frame rate (§21).
+- [x] **8.2** Implement the bitrate formula, keyframe intervals, colour tags and constant frame rate (§39).
+- [x] **8.3** Implement trim and speed time mapping (§41).
+- [x] **8.4** Render audio: mixing, speed with pitch preserved, soft limiter, AAC (§42). Keep mute correct after trims, and use each clip's own track settings (§58).
+- [x] **8.5** Build GIF export (§43). "Loop off" must play once (§58), and frames must stream rather than all sitting in memory.
+- [x] **8.6** Add progress, render speed, cancel, a disk-space check, temp files, atomic final move and Save Again (§21, §44). Cancelling must not report an error (§58).
+- [x] **8.7** Make sure a feature is never silently dropped from an export (§38). It either renders or the export reports why it can't.
 
 **Exit criteria**
 - The three M0 sample projects export correctly, at or above Recordly's baseline speed.
+
+**Result.** They do, at about 1.8× (Milestone 3's table). GIFs stream to disk, keep their frame rate on average, and play once with Loop off. Export has a stall limit, so an encoder that stops responding becomes an error rather than a hang.
+
+A hang in exports with sound was found by a screenshot. AVAssetWriter holds video back until it has sound from about a second past it, so sound written only after each frame could leave each side waiting for the other, depending on timing. `an_export_with_sound_and_a_blur_finishes` reproduces it.
+
+The Fast, Balanced and Quality encoding modes only set the bitrate.
 - Cancelling leaves no stray files.
 - Golden-frame tests cover every effect.
 
@@ -346,12 +365,19 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 
 **Goal:** local captions that transcribe the right audio.
 
-- [ ] **9.1** Run Whisper locally through `whisper-rs`. Add model download with a checksum, which Recordly lacks, plus delete and custom model (§12, §36).
-- [ ] **9.2** Add an audio source selector that defaults to the mic when one exists. This fixes the wrong-track and no-audio failures (§36).
-- [ ] **9.3** Implement segmentation (§36), tested with sample transcripts.
-- [ ] **9.4** Implement line layout and animation (§36), with text drawn in wgpu through `cosmic-text` so preview and export match.
+- [x] **9.1** Run Whisper locally through `whisper-rs`. Add model download with a checksum, which Recordly lacks, plus delete and custom model (§12, §36).
+- [x] **9.2** Add an audio source selector that defaults to the mic when one exists. This fixes the wrong-track and no-audio failures (§36).
+- [x] **9.3** Implement segmentation (§36), tested with sample transcripts.
+- [x] **9.4** Implement line layout and animation (§36), with text drawn in wgpu through `cosmic-text` so preview and export match.
 - [ ] **9.5** Build caption editing (§12). For inline editing, place a DOM text box over the caption's computed position.
-- [ ] **9.6** Export SRT and VTT mapped through trims and speed changes, and respect the Show switch at export (§58). Report any write failure to the user.
+- [x] **9.6** Export SRT and VTT mapped through trims and speed changes, and respect the Show switch at export (§58). Report any write failure to the user.
+
+**Result.** Real speech from macOS's `say` goes through the real model and the real panel, onto the timeline and into the picture. The model's checksum is verified on download.
+
+**A deliberate change from §36:** Whisper's timings smear real words into pauses, so dropping every word inside a long silence, as §36 says, loses real speech after a pause. A test with real audio showed this. Runs of words that flow up to the end of a silence and on into the next word are moved onto that speech, and only words stranded inside it are dropped.
+
+- **9.5** isn't ticked: captions are edited in the panel, without the inline box over the preview.
+- Whisper has only been tried on clear synthetic speech with the tiny model. Real voices and other languages haven't been tried.
 
 **Exit criteria**
 - A mic-and-system recording produces captions of the voice, not the system audio.
@@ -362,13 +388,13 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 **Goal:** something you could give to another person.
 
 - [ ] **10.1** Build the settings surface (§22).
-- [ ] **10.2** Add the macOS menu (§49). Remove Toggle DevTools from production builds.
+- [x] **10.2** Add the macOS menu (§49). Remove Toggle DevTools from production builds.
 - [ ] **10.3** Add translations for the 10 languages (§22). Reuse of Recordly's text depends on D1.
 - [ ] **10.4** Do an accessibility pass: labels, keyboard access to the launch bar, reduced motion (§52). Rust/UI's RTL support may also close that gap.
-- [ ] **10.5** Set the webview security policy, allow only the IPC the app needs, and scope file access (§50).
-- [ ] **10.6** Confirm network use is limited to what the user asks for, plus the update check (§51).
-- [ ] **10.7** Add diagnostics: recording and export logs, with pruning (§55).
-- [ ] **10.8** Generate the app icon set from `assets/logo.svg`, with padding, according to D9.
+- [x] **10.5** Set the webview security policy, allow only the IPC the app needs, and scope file access (§50).
+- [x] **10.6** Confirm network use is limited to what the user asks for, plus the update check (§51).
+- [x] **10.7** Add diagnostics: recording and export logs, with pruning (§55).
+- [x] **10.8** Generate the app icon set from `assets/logo.svg`, with padding, according to D9.
 - [ ] **10.9** Package a DMG for x64 and arm64, with hardened runtime, signing and notarisation (§53). Check the entitlements needed for the transparent window, and that wry's private `drawsBackground` setting doesn't get in the way of notarisation.
 - [ ] **10.10** Add auto-update with stable and experimental channels (§24).
 
@@ -376,6 +402,17 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 - A notarised build installs and runs on a clean Mac with no developer tools.
 - Part 1 of the feature list is audited for macOS, with each item marked done, changed or dropped.
 - An update installs from one beta to the next.
+
+**Result so far.** `scripts/package-macos.sh` makes a 12 MB DMG. Mounted, its signature verifies, and the app opens from it and runs. It's signed ad hoc, and for arm64 only on this Mac, because Homebrew's Rust has no other target.
+
+- **10.1** has everything in §22 except language.
+- **10.3 isn't started.** Everything is in English. The UI's text is written inline, so this needs a pass over all of it.
+- **10.4 is partly done:** controls have labels and reduced motion is respected, but keyboard access to the launch bar and focus handling in panels haven't been gone through.
+- **10.5:** pages can't load anything from outside the app, through a content policy that's been run with every self-test. Dioxus still gets all of its IPC, and file access isn't scoped: the app reads what the user opens.
+- **10.6:** `reel-captions/src/models.rs`, which downloads a model when asked, is the only place with a network client. There's no update check, since 10.10 isn't built.
+- **10.9 needs your Apple Developer certificate.** The script signs with hardened runtime and notarises when given one, but that path has never run, so the entitlements and wry's private `drawsBackground` are unchecked. A universal build needs `rustup`.
+- **10.10 isn't started.** It needs somewhere to publish releases.
+- **10.8** uses D9's default, a black reel on a white rounded tile, from `packaging/macos/icon.svg`.
 
 ## Milestone 11: Windows
 
@@ -418,7 +455,7 @@ Fragmented MP4 and frame reordering don't mix: AVAssetWriter fails with `-16341`
 - [ ] **13.1** Finish the Part 1 audit across all three OSes.
 - [ ] **13.2** Run a test matrix: each OS, with and without a webcam, one and two monitors, light and dark, long recordings.
 - [ ] **13.3** Automate releases: builds, smoke tests, checksums (§53).
-- [ ] **13.4** Write the README, user docs and licence notices, including Rust/UI's MIT notice and FFmpeg's.
+- [x] **13.4** Write the README, user docs and licence notices, including Rust/UI's MIT notice and FFmpeg's.
 - [ ] **13.5** Publish 1.0. Add Homebrew and winget if wanted.
 
 **Exit criteria**
