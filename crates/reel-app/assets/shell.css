@@ -275,3 +275,4 @@ html, body, #main { background: transparent !important; height: 100%; margin: 0;
 .pb-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #2563eb; color: #fff; flex: none; }
 .sc-key { min-width: 90px; justify-content: center; font-variant-numeric: tabular-nums; }
 .sc-key[data-listening="true"] { border-color: #2563eb; color: #3d8bff !important; }
+.ph-webcam { border-radius: 16px; }

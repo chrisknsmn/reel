@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use dioxus::desktop::tao::event::{Event, WindowEvent};
-use dioxus::desktop::use_wry_event_handler;
+use dioxus::desktop::{use_muda_event_handler, use_wry_event_handler};
 use dioxus::prelude::*;
 use icons::{
     Captions, Download, FolderOpen, Image, MousePointer2, Pause, Play, Plus, Redo2, Scissors,
@@ -506,6 +506,32 @@ pub fn Editor(dark: Signal<bool>) -> Element {
                         links::tell_editor(ToEditor::Open(path));
                     }
                 }
+            }
+            _ => {}
+        }
+    });
+
+    use_muda_event_handler(move |event| {
+        if !crate::editor_is_showing() {
+            return;
+        }
+        match event.id.as_ref() {
+            crate::menu::OPEN => run_action(ed, Action::OpenProjects),
+            crate::menu::SAVE => run_action(ed, Action::Save),
+            crate::menu::SAVE_AS => run_action(ed, Action::SaveAs),
+            crate::menu::UNDO => run_action(ed, Action::Undo),
+            crate::menu::REDO => run_action(ed, Action::Redo),
+            // In a text box this means its text, and everywhere else it means the zooms.
+            crate::menu::SELECT_ALL => {
+                spawn(async move {
+                    let in_text = document::eval(
+                        "const e = document.activeElement; if (e && (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA')) { e.select(); return true; } return false;",
+                    )
+                    .await;
+                    if in_text.ok().and_then(|value| value.as_bool()) != Some(true) {
+                        run_action(ed, Action::SelectAllZooms);
+                    }
+                });
             }
             _ => {}
         }

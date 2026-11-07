@@ -321,6 +321,34 @@ pub fn set_crop_edge(project: &mut Project, edge: CropEdge, percent: f64) {
     }
 }
 
+/// The least of the webcam's picture a crop leaves (§11).
+const SMALLEST_WEBCAM_CROP: f64 = 0.08;
+
+/// Sets one side of the webcam's crop, in percent.
+pub fn set_webcam_crop(crop: &mut reel_core::project::Crop, edge: CropEdge, percent: f64) {
+    let inset = (percent / 100.0).clamp(0.0, 1.0);
+    match edge {
+        CropEdge::Left => {
+            let right = crop.x + crop.width;
+            crop.x = inset.min(right - SMALLEST_WEBCAM_CROP);
+            crop.width = right - crop.x;
+        }
+        CropEdge::Right => {
+            let right = (1.0 - inset).max(crop.x + SMALLEST_WEBCAM_CROP);
+            crop.width = right - crop.x;
+        }
+        CropEdge::Top => {
+            let bottom = crop.y + crop.height;
+            crop.y = inset.min(bottom - SMALLEST_WEBCAM_CROP);
+            crop.height = bottom - crop.y;
+        }
+        CropEdge::Bottom => {
+            let bottom = (1.0 - inset).max(crop.y + SMALLEST_WEBCAM_CROP);
+            crop.height = bottom - crop.y;
+        }
+    }
+}
+
 #[component]
 fn CursorPanel(project: Project) -> Element {
     let ed = use_ed();
@@ -516,6 +544,26 @@ fn WebcamPanel(project: Project) -> Element {
                 }
                 SliderRow { label: "Down", value: webcam.custom_y * 100.0, min: 0.0, max: 100.0, step: 1.0, default: 100.0, format: Format::Percent,
                     onchange: move |value: f64| ed.change("webcam-y", |p| p.webcam.custom_y = value / 100.0),
+                    onrelease: move |()| ed.end_gesture(),
+                }
+            }
+        }
+        if webcam.source.is_some() {
+            Section { title: "Crop",
+                SliderRow { label: "Left", value: webcam.crop.x * 100.0, min: 0.0, max: 92.0, step: 1.0, default: 0.0, format: Format::Percent,
+                    onchange: move |value: f64| ed.change("webcam-crop", |p| set_webcam_crop(&mut p.webcam.crop, CropEdge::Left, value)),
+                    onrelease: move |()| ed.end_gesture(),
+                }
+                SliderRow { label: "Right", value: (1.0 - webcam.crop.x - webcam.crop.width) * 100.0, min: 0.0, max: 92.0, step: 1.0, default: 0.0, format: Format::Percent,
+                    onchange: move |value: f64| ed.change("webcam-crop", |p| set_webcam_crop(&mut p.webcam.crop, CropEdge::Right, value)),
+                    onrelease: move |()| ed.end_gesture(),
+                }
+                SliderRow { label: "Top", value: webcam.crop.y * 100.0, min: 0.0, max: 92.0, step: 1.0, default: 0.0, format: Format::Percent,
+                    onchange: move |value: f64| ed.change("webcam-crop", |p| set_webcam_crop(&mut p.webcam.crop, CropEdge::Top, value)),
+                    onrelease: move |()| ed.end_gesture(),
+                }
+                SliderRow { label: "Bottom", value: (1.0 - webcam.crop.y - webcam.crop.height) * 100.0, min: 0.0, max: 92.0, step: 1.0, default: 0.0, format: Format::Percent,
+                    onchange: move |value: f64| ed.change("webcam-crop", |p| set_webcam_crop(&mut p.webcam.crop, CropEdge::Bottom, value)),
                     onrelease: move |()| ed.end_gesture(),
                 }
             }
@@ -757,6 +805,13 @@ fn ClipPanel(id: ItemId) -> Element {
         return rsx! {};
     };
     let tracks = project.media.source_tracks.clone();
+    let count = project.timeline.clips.len();
+    let position = project
+        .timeline
+        .clips
+        .iter()
+        .position(|other| other.id == id)
+        .unwrap_or(0);
     let id_mute = id.clone();
     let id_audio = id.clone();
     rsx! {
@@ -828,6 +883,32 @@ fn ClipPanel(id: ItemId) -> Element {
                             }
                         }
                     }
+                }
+            }
+        }
+        // Recordly can't do this: its clips have no separate source position, so moving one changes
+        // which footage it shows (§15, BUILD_PLAN 6.6).
+        Section { title: "Order",
+            div { class: "row-buttons",
+                button {
+                    class: "row-button",
+                    id: "clip-earlier",
+                    disabled: position == 0,
+                    onclick: {
+                        let id = clip.id.clone();
+                        move |_| { ed.apply(&Edit::ReorderClip { id: id.clone(), to_index: position.saturating_sub(1) }); }
+                    },
+                    "Move earlier"
+                }
+                button {
+                    class: "row-button",
+                    id: "clip-later",
+                    disabled: position + 1 >= count,
+                    onclick: {
+                        let id = clip.id.clone();
+                        move |_| { ed.apply(&Edit::ReorderClip { id: id.clone(), to_index: position + 1 }); }
+                    },
+                    "Move later"
                 }
             }
         }
@@ -1332,6 +1413,16 @@ mod tests {
         set_crop_edge(&mut p, CropEdge::Right, 50.0);
         assert!(p.look.crop.width >= SMALLEST_CROP - 1e-9);
         assert!(p.look.crop.x + p.look.crop.width <= 1.0 + 1e-9);
+    }
+
+    #[test]
+    fn a_webcam_crop_keeps_a_minimum() {
+        let mut crop = Crop::default();
+        set_webcam_crop(&mut crop, CropEdge::Left, 50.0);
+        assert!(near(crop.x, 0.5) && near(crop.width, 0.5));
+        set_webcam_crop(&mut crop, CropEdge::Right, 90.0);
+        assert!(near(crop.width, SMALLEST_WEBCAM_CROP));
+        assert!(crop.x + crop.width <= 1.0 + 1e-9);
     }
 
     #[test]

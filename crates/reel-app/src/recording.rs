@@ -240,7 +240,42 @@ pub fn save_project_for(video: &Path, duration: Micros) -> Result<PathBuf, Strin
     let paths = OutputPaths::for_video(video);
     let session = RecordingSession::load(&paths.session)
         .map_err(|error| format!("The recording's details can't be read: {error}"))?;
-    write_project(video, &session.to_project(duration))
+    let mut project = session.to_project(duration);
+    let settings =
+        reel_core::settings::SettingsStore::open(&support_folder().join("settings.json"));
+    if settings.get().auto_suggest_zooms {
+        let track = session
+            .cursor
+            .as_ref()
+            .and_then(|path| std::fs::read_to_string(path).ok())
+            .and_then(|text| reel_motion::cursor::CursorTrack::parse(&text).ok());
+        let size = reel_media::macos::probe(video)
+            .ok()
+            .map(|info| (info.width, info.height));
+        if let (Some(track), Some(size)) = (track, size) {
+            add_suggested_zooms(&mut project, &track, size);
+        }
+    }
+    write_project(video, &project)
+}
+
+/// Adds zooms around clusters of clicks, unless the video is close to square or portrait (§10).
+pub fn add_suggested_zooms(
+    project: &mut Project,
+    track: &reel_motion::cursor::CursorTrack,
+    size: (u32, u32),
+) {
+    if !reel_motion::suggest::suits_auto_zoom(size.0, size.1) {
+        return;
+    }
+    for suggestion in reel_motion::suggest::suggest_zooms(track, &project.timeline) {
+        let _ = project.timeline.apply(&reel_core::edit::Edit::AddZoom {
+            start: suggestion.start,
+            depth: 1,
+            focus: suggestion.focus,
+            mode: reel_core::timeline::ZoomMode::Auto,
+        });
+    }
 }
 
 fn write_project(video: &Path, project: &Project) -> Result<PathBuf, String> {
@@ -309,4 +344,72 @@ fn project_was_edited(path: &Path, project: &Project) -> bool {
     let mut untouched = session.to_project(project.timeline.duration());
     untouched.id.clone_from(&project.id);
     untouched != *project
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reel_core::time::SourceTime;
+    use reel_core::timeline::Timeline;
+    use reel_motion::cursor::{CursorSample, CursorShape, CursorTrack, Interaction};
+
+    fn clicking_track() -> CursorTrack {
+        let mut samples = Vec::new();
+        for index in 0..300_u32 {
+            let ms = f64::from(index) * 33.0;
+            let interaction = if (60..120).contains(&index) && index % 10 == 0 {
+                Interaction::Click
+            } else {
+                Interaction::Move
+            };
+            samples.push(CursorSample {
+                time: SourceTime::from_ms(ms),
+                x: 0.3,
+                y: 0.3,
+                interaction,
+                shape: CursorShape::Arrow,
+            });
+        }
+        CursorTrack { samples }
+    }
+
+    fn project() -> Project {
+        Project {
+            timeline: Timeline::for_recording(Micros::from_secs(10)),
+            ..Project::default()
+        }
+    }
+
+    #[test]
+    fn a_wide_recording_with_clicks_gets_zooms() {
+        let mut project = project();
+        add_suggested_zooms(&mut project, &clicking_track(), (1920, 1080));
+        assert!(!project.timeline.zooms.is_empty());
+    }
+
+    #[test]
+    fn a_nearly_square_or_portrait_one_doesnt() {
+        for size in [(1000, 1000), (1080, 1920)] {
+            let mut project = project();
+            add_suggested_zooms(&mut project, &clicking_track(), size);
+            assert!(project.timeline.zooms.is_empty(), "{size:?}");
+        }
+    }
+
+    #[test]
+    fn no_clicks_means_no_zooms() {
+        let mut project = project();
+        add_suggested_zooms(&mut project, &CursorTrack::default(), (1920, 1080));
+        assert!(project.timeline.zooms.is_empty());
+    }
+
+    #[test]
+    fn recordings_get_names_that_retention_recognises() {
+        let path = new_recording_path(Path::new("/r"));
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            name.starts_with("recording-") && name.ends_with(".mp4"),
+            "{name}"
+        );
+    }
 }

@@ -30,6 +30,10 @@ mod hotkey;
 #[cfg(target_os = "macos")]
 mod links;
 #[cfg(target_os = "macos")]
+mod logs;
+#[cfg(target_os = "macos")]
+mod menu;
+#[cfg(target_os = "macos")]
 mod meter;
 #[cfg(target_os = "macos")]
 mod native;
@@ -51,9 +55,22 @@ const SHELL_CSS: &str = include_str!("../assets/shell.css");
 
 const LOGO_SVG: &str = include_str!("../../../assets/logo.svg");
 
+/// The pages only ever show what the app gives them. They can't load anything from the internet, which
+/// keeps a mistake in the page from reaching further than the app itself (§50, BUILD_PLAN 10.5). Dioxus
+/// needs the inline scripts, and talks to Rust over the local connections listed.
+const CONTENT_POLICY: &str = "default-src 'self' dioxus: ipc:; \
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' dioxus:; \
+    style-src 'self' 'unsafe-inline' dioxus:; \
+    img-src 'self' data: dioxus:; \
+    font-src 'self' data: dioxus:; \
+    connect-src 'self' dioxus: ipc: http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*";
+
 /// Everything a window's page needs, since each window has its own.
 pub fn head() -> String {
-    format!("<style>{TAILWIND_CSS}{TOAST_CSS}{SHELL_CSS}</style>")
+    format!(
+        "<meta http-equiv=\"Content-Security-Policy\" content=\"{CONTENT_POLICY}\">\
+         <style>{TAILWIND_CSS}{TOAST_CSS}{SHELL_CSS}</style>"
+    )
 }
 
 /// Whether the editor window is showing, which decides what closing the bar does (§2).
@@ -122,6 +139,8 @@ fn main() {
     #[cfg(target_os = "macos")]
     let config = config
         .with_as_child_window()
+        .with_menu(Some(menu::build()))
+        .with_disable_context_menu(true)
         .with_close_behaviour(dioxus::desktop::WindowCloseBehaviour::WindowHides)
         .with_background_color((0, 0, 0, 0))
         .with_on_window(|window, _dom| {
@@ -144,6 +163,7 @@ fn App() -> Element {
 
     #[cfg(target_os = "macos")]
     use_hook(|| {
+        logs::prune();
         hotkey::register();
         if !editor_is_showing() {
             let window = dioxus::desktop::window();

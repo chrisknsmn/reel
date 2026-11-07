@@ -9,11 +9,12 @@ use dioxus::prelude::*;
 use objc2_app_kit::{NSEventModifierFlags, NSEventType};
 use reel_core::format;
 use reel_core::history::Selection;
+use reel_core::time::TimelineTime;
 use serde_json::{Value, json};
 
 use crate::editor::Ed;
 use crate::native::ns_window;
-use crate::self_test::{capture, send_key_with, send_mouse_kind};
+use crate::self_test::{capture, send_key_through_app, send_mouse_kind};
 
 async fn sleep(ms: u64) {
     tokio::time::sleep(Duration::from_millis(ms)).await;
@@ -103,7 +104,7 @@ async fn drag(window: &Window, from: (f64, f64), to: (f64, f64)) {
 const COMMAND: NSEventModifierFlags = NSEventModifierFlags::Command;
 
 async fn press(window: &Window, text: &str, code: u16) {
-    send_key_with(window, text, code, NSEventModifierFlags::empty());
+    send_key_through_app(window, text, code, NSEventModifierFlags::empty());
     sleep(150).await;
 }
 
@@ -113,7 +114,13 @@ async fn press_command(window: &Window, text: &str, code: u16, shift: bool) {
     } else {
         COMMAND
     };
-    send_key_with(window, text, code, flags);
+    // A real shifted key reports its capital.
+    let typed = if shift {
+        text.to_uppercase()
+    } else {
+        text.to_string()
+    };
+    send_key_through_app(window, &typed, code, flags);
     sleep(150).await;
 }
 
@@ -283,11 +290,41 @@ pub async fn run(ed: Ed) {
     }
     press_command(&window, "z", 6, false).await;
 
+    // Real reordering: the footage goes with the clip, which Recordly can't do (§15).
+    ed.select(Selection::Clip(project().timeline.clips[0].id.clone()));
+    sleep(150).await;
+    let first_footage = project().timeline.clips[0].source_start;
+    let second_footage = project().timeline.clips[1].source_start;
+    click(&window, "#clip-later").await;
+    let reordered = project();
+    check(
+        "a clip can be moved later, with its footage",
+        reordered.timeline.clips[0].source_start == second_footage
+            && reordered.timeline.clips[1].source_start == first_footage,
+        format!(
+            "{:?}",
+            reordered
+                .timeline
+                .clips
+                .iter()
+                .map(|clip| clip.source_start.secs())
+                .collect::<Vec<_>>()
+        ),
+    );
+    press_command(&window, "z", 6, false).await;
+    check(
+        "and undo puts it back",
+        project().timeline.clips[0].source_start == first_footage,
+        String::new(),
+    );
+    ed.select(Selection::Clip(project().timeline.clips[1].id.clone()));
+    sleep(150).await;
+
     // Delete from the keyboard, which Recordly can't do for clips (§15, §58).
     focus_editor().await;
     let count = project().timeline.clips.len();
     press(&window, "", 51).await;
-    send_key_with(&window, "\u{7f}", 51, NSEventModifierFlags::empty());
+    send_key_through_app(&window, "\u{7f}", 51, NSEventModifierFlags::empty());
     sleep(150).await;
     check(
         "Delete removes the selected clip",
@@ -585,6 +622,95 @@ pub async fn run(ed: Ed) {
     );
     shot("editor-11-exported");
     click(&window, "#export-close").await;
+
+    // The webcam can be dragged on the preview, from its panel.
+    click(&window, "#rail-Webcam").await;
+    sleep(200).await;
+    if let Some((x, y)) = center("#webcam-handle").await {
+        drag(&window, (x, y), (x - 300.0, y - 120.0)).await;
+    }
+    let webcam = project().webcam;
+    check(
+        "dragging the webcam moves it",
+        webcam.position == reel_core::project::WebcamPosition::Custom && webcam.custom_x < 0.95,
+        format!(
+            "{:?} at {:.2},{:.2}",
+            webcam.position, webcam.custom_x, webcam.custom_y
+        ),
+    );
+    focus_editor().await;
+    press_command(&window, "z", 6, false).await;
+
+    // Captions, through the panel, from real speech on the mic track.
+    if std::env::var_os("REEL_TEST_SPEECH").is_some() {
+        click(&window, "#rail-Captions").await;
+        sleep(200).await;
+        let before_captions = capture(&window);
+        check(
+            "the model is found",
+            exists("#generate-captions").await && !exists("#download-model").await,
+            String::new(),
+        );
+        click(&window, "#generate-captions").await;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while project().timeline.captions.is_empty() && Instant::now() < deadline {
+            sleep(100).await;
+        }
+        let captions = project().timeline.captions;
+        let text = captions
+            .iter()
+            .map(|caption| caption.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
+        check(
+            "generating makes captions from the mic",
+            text.contains("hello") && text.contains("test"),
+            text.clone(),
+        );
+        check(
+            "and turns them on",
+            project().caption_style.show,
+            String::new(),
+        );
+        check(
+            "they show on the timeline",
+            exists("#row-captions .tl-caption").await,
+            String::new(),
+        );
+        // Go to the first one, where it should be drawn into the picture.
+        if let Some(first) = captions.first() {
+            ed.seek(TimelineTime((first.start.0 + first.end.0) / 2));
+            sleep(600).await;
+            if let (Some(a), Some(b), Some((hx, hy, hw, hh))) = (
+                &before_captions,
+                &capture(&window),
+                rect("#preview-hole").await,
+            ) {
+                let scale = a.width as f64
+                    / ns_window(&window)
+                        .contentView()
+                        .map_or(1.0, |view| view.frame().size.width);
+                let title = a.height as f64 / scale
+                    - ns_window(&window)
+                        .contentView()
+                        .map_or(0.0, |view| view.frame().size.height);
+                // The bottom of the preview, where a caption goes.
+                let area = (
+                    (hx * scale) as usize,
+                    ((hy + title + hh * 0.8) * scale) as usize,
+                    (hw * scale) as usize,
+                    (hh * 0.2 * scale) as usize,
+                );
+                check(
+                    "and in the picture",
+                    difference(a, b, area) > 3000,
+                    format!("{}", difference(a, b, area)),
+                );
+            }
+            shot("editor-12-captions");
+        }
+    }
 
     // Saving, then reading it back from disk.
     focus_editor().await;

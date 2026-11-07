@@ -43,6 +43,18 @@ if [ "$#" -eq 0 ]; then
             -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p \
             -colorspace bt709 -color_primaries bt709 -color_trc bt709 "$webcam"
     fi
+    # Speech on a mic track, for generating captions, if there's a model to do it with. Getting one:
+    #   cargo test -p reel-captions --features whisper -- --ignored
+    speech_env=()
+    model=$HOME/Library/Caches/reel-spikes/models/ggml-tiny.en.bin
+    rm -f "$video.mic.m4a"
+    if [ "${REEL_TEST:-}" = editor ] && [ -f "$model" ]; then
+        say -o "$work/speech.aiff" "Hello there. This is a test of captions."
+        afconvert -f m4af -d aac -c 2 "$work/speech.aiff" "$video.mic.m4a"
+        mkdir -p "$work/data"
+        printf '{ "whisper_model": "%s" }' "$model" > "$work/data/settings.json"
+        speech_env=(--env REEL_TEST_SPEECH=1)
+    fi
     # A cursor that wanders and clicks, so the comparison with the export path covers it too.
     python3 -I - "$video.cursor.json" <<'PYTHON'
 import json, math, sys
@@ -97,6 +109,7 @@ PLIST
 codesign --force --sign - "$app"
 
 open -W -n "$app" --env "REEL_SELF_TEST=${REEL_TEST:-1}" --env "REEL_DATA=$work/data" --env "REEL_OUT=$results" \
+    ${speech_env[@]+"${speech_env[@]}"} \
     --stdout "$results/run.log" --stderr "$results/run.log" --args "$project"
 cat "$results/run.log"
 cp "$results"/* "$out"/

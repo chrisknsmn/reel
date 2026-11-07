@@ -290,6 +290,9 @@ pub fn Bar() -> Element {
                 .as_mut()
                 .and_then(|process| process.events.try_recv().ok());
             let Some(event) = event else { continue };
+            if let Ok(line) = serde_json::to_string(&event) {
+                crate::logs::write("recording", &line);
+            }
             match event {
                 Event::Started { .. } => {
                     if mode() == Mode::Starting {

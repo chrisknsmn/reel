@@ -170,14 +170,20 @@ pub fn ExportPanel() -> Element {
                 speed.set(frames as f64 / began.elapsed().as_secs_f64().max(0.001));
             }
             match task.await {
-                Ok(Ok(report)) => stage.set(Stage::Rendered {
-                    file,
-                    seconds: report.elapsed_seconds,
-                    saved: None,
-                }),
+                Ok(Ok(report)) => {
+                    crate::logs::write("export", &format!("{report:?}"));
+                    stage.set(Stage::Rendered {
+                        file,
+                        seconds: report.elapsed_seconds,
+                        saved: None,
+                    });
+                }
                 // A cancel isn't an error, so it goes back to the settings quietly (§58).
                 Ok(Err(_)) if flag.load(Ordering::Relaxed) => stage.set(Stage::Settings),
-                Ok(Err(error)) => stage.set(Stage::Failed(error)),
+                Ok(Err(error)) => {
+                    crate::logs::write("export", &error);
+                    stage.set(Stage::Failed(error));
+                }
                 Err(error) => stage.set(Stage::Failed(error.to_string())),
             }
         });

@@ -66,6 +66,38 @@ fn send_key(window: &Window, characters: &str, key_code: u16) {
     send_key_with(window, characters, key_code, NSEventModifierFlags::empty());
 }
 
+/// Sends a key press through the application, which offers it to the menu bar first, as a real press
+/// is. Sent straight to the window, a key the menu has claimed looks as if it works when it doesn't.
+pub fn send_key_through_app(
+    window: &Window,
+    characters: &str,
+    key_code: u16,
+    flags: NSEventModifierFlags,
+) {
+    let Some(main_thread) = objc2::MainThreadMarker::new() else {
+        return;
+    };
+    let application = objc2_app_kit::NSApplication::sharedApplication(main_thread);
+    let number = ns_window(window).windowNumber();
+    let text = NSString::from_str(characters);
+    for kind in [NSEventType::KeyDown, NSEventType::KeyUp] {
+        let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+            kind,
+            NSPoint::new(0.0, 0.0),
+            flags,
+            NSProcessInfo::processInfo().systemUptime(),
+            number,
+            None,
+            &text,
+            &text,
+            false,
+            key_code,
+        )
+        .expect("AppKit refused to build a key event");
+        application.sendEvent(&event);
+    }
+}
+
 /// Sends a key press with modifiers held.
 pub fn send_key_with(
     window: &Window,

@@ -150,6 +150,7 @@ pub fn PreviewOverlay() -> Element {
     let ed = use_ed();
     let mut drag = use_signal(|| None::<PlaceDrag>);
     let mut aiming = use_signal(|| false);
+    let mut webcam_drag = use_signal(|| None::<((f64, f64), (f64, f64), (f64, f64), f64)>);
     // Reading these redraws the handles as the playhead moves and the hole changes.
     let _ = (ed.position)();
     let _ = (ed.hole)();
@@ -193,6 +194,20 @@ pub fn PreviewOverlay() -> Element {
             let _ = p.timeline.apply(&edit);
         });
     };
+
+    // A bubble that can be dragged around, which Recordly's can't (§11).
+    let webcam_bubble = preview::webcam_size()
+        .filter(|_| project.webcam.enabled)
+        .map(|size| {
+            let scale = (map.stage.0 / 1920.0).min(map.stage.1 / 1080.0);
+            reel_motion::webcam::layout(
+                &project.webcam,
+                map.stage,
+                (f64::from(size.0), f64::from(size.1)),
+                map.camera.scale,
+                scale,
+            )
+        });
 
     let active: Vec<_> = project
         .timeline
@@ -283,6 +298,49 @@ pub fn PreviewOverlay() -> Element {
                     }
                 }
             }
+            if let (Some(bubble), true) = (webcam_bubble, (ed.rail)() == super::state::Rail::Webcam) {
+                {
+                    let (left, top) = (map.shown.x + bubble.frame.x * map.scale(), map.shown.y + bubble.frame.y * map.scale());
+                    let (width, height) = (bubble.frame.width * map.scale(), bubble.frame.height * map.scale());
+                    let from = (bubble.frame.x, bubble.frame.y);
+                    let size = (bubble.frame.width, bubble.frame.height);
+                    let margin = project.webcam.margin * (map.stage.0 / 1920.0).min(map.stage.1 / 1080.0);
+                    rsx! {
+                        div {
+                            class: "ph-annotation ph-webcam",
+                            id: "webcam-handle",
+                            title: "Drag to move the webcam",
+                            style: "left: {left:.1}px; top: {top:.1}px; width: {width:.1}px; height: {height:.1}px",
+                            onmousedown: move |event| {
+                                event.stop_propagation();
+                                let at = event.client_coordinates();
+                                webcam_drag.set(Some(((at.x, at.y), from, size, margin)));
+                            },
+                        }
+                    }
+                }
+            }
+            if let Some((grabbed, from, size, margin)) = webcam_drag() {
+                div {
+                    class: "ph-capture",
+                    onmousemove: move |event| {
+                        let at = event.client_coordinates();
+                        let scale = map.scale().max(1e-9);
+                        let x = from.0 + (at.x - grabbed.0) / scale;
+                        let y = from.1 + (at.y - grabbed.1) / scale;
+                        let (custom_x, custom_y) = webcam_position_for(x, y, size, map.stage, margin);
+                        ed.change("webcam-drag", |p| {
+                            p.webcam.position = reel_core::project::WebcamPosition::Custom;
+                            p.webcam.custom_x = custom_x;
+                            p.webcam.custom_y = custom_y;
+                        });
+                    },
+                    onmouseup: move |_| {
+                        webcam_drag.set(None);
+                        ed.end_gesture();
+                    },
+                }
+            }
             if let Some(active) = drag() {
                 div {
                     class: "ph-capture",
@@ -305,6 +363,27 @@ pub fn PreviewOverlay() -> Element {
             }
         }
     }
+}
+
+/// A webcam bubble's custom position, from where its top-left corner has been dragged to on the stage.
+/// It's the opposite of how the position is laid out, so it comes out the same whatever the stage's size.
+#[must_use]
+pub fn webcam_position_for(
+    x: f64,
+    y: f64,
+    size: (f64, f64),
+    stage: (f64, f64),
+    margin: f64,
+) -> (f64, f64) {
+    let fraction = |at: f64, length: f64, room: f64| {
+        let travel = room - length - 2.0 * margin;
+        if travel <= 0.0 {
+            0.0
+        } else {
+            ((at - margin) / travel).clamp(0.0, 1.0)
+        }
+    };
+    (fraction(x, size.0, stage.0), fraction(y, size.1, stage.1))
 }
 
 /// The edges of a crop being edited, as fractions of the video.
@@ -585,6 +664,36 @@ mod tests {
         assert_eq!((position.x, position.y), (99.0, 99.0));
         let (position, _, _) = dragged_place(Grip::Body, start(), -1000.0, -1000.0);
         assert_eq!((position.x, position.y), (-19.0, -19.0));
+    }
+
+    #[test]
+    fn a_dragged_webcam_lands_where_it_was_put() {
+        let stage = (1920.0, 1080.0);
+        let size = (400.0, 400.0);
+        assert_eq!(
+            webcam_position_for(24.0, 24.0, size, stage, 24.0),
+            (0.0, 0.0)
+        );
+        let (x, y) = webcam_position_for(1496.0, 656.0, size, stage, 24.0);
+        assert!((x - 1.0).abs() < 1e-9 && (y - 1.0).abs() < 1e-9);
+        let (x, _) = webcam_position_for(760.0, 0.0, size, stage, 24.0);
+        assert!((x - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_dragged_webcam_stays_on_the_stage() {
+        assert_eq!(
+            webcam_position_for(-500.0, 9000.0, (400.0, 400.0), (1920.0, 1080.0), 24.0),
+            (0.0, 1.0)
+        );
+    }
+
+    #[test]
+    fn a_webcam_too_big_to_move_doesnt_divide_by_nothing() {
+        assert_eq!(
+            webcam_position_for(10.0, 10.0, (1920.0, 1080.0), (1920.0, 1080.0), 0.0),
+            (0.0, 0.0)
+        );
     }
 
     #[test]

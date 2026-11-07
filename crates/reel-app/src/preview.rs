@@ -290,6 +290,12 @@ pub fn video_size() -> Option<(u32, u32)> {
     Some((scene.info.width, scene.info.height))
 }
 
+/// The webcam footage's size in pixels, if it's showing.
+#[must_use]
+pub fn webcam_size() -> Option<(u32, u32)> {
+    Some(SHARED.scene()?.webcam.as_ref()?.size)
+}
+
 /// The recorded cursor, if there is one.
 #[must_use]
 pub fn cursor_track() -> Option<reel_motion::cursor::CursorTrack> {
