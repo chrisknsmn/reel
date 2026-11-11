@@ -33,17 +33,17 @@ cargo run --release -p reel-cli -- frame project.reel --at-ms 1000 frame.png
 
 ## How it's put together
 
-| Crate | What it does |
-|---|---|
-| `reel-core` | The project, timeline edits, undo, settings and files. No UI or GPU. |
-| `reel-motion` | Zooms, cursor motion, layout and caption layout, as plain maths. |
-| `reel-media` | Decoding, encoding and sound, through AVFoundation on macOS. |
-| `reel-render` | The one wgpu compositor, used by both the preview and export. |
-| `reel-capture` | Screen, mic, webcam and cursor capture. |
-| `reel-recorder` | A separate recording process, so a crash in the app can't lose a recording. |
-| `reel-captions` | Whisper, segmentation, and subtitle files. |
-| `reel-cli` | Headless rendering. |
-| `reel-app` | The app: Dioxus with [Rust/UI](https://rust-ui.com/) for controls, and wgpu showing through a hole in the page. |
+| Crate           | What it does                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `reel-core`     | The project, timeline edits, undo, settings and files. No UI or GPU.                                            |
+| `reel-motion`   | Zooms, cursor motion, layout and caption layout, as plain maths.                                                |
+| `reel-media`    | Decoding, encoding and sound, through AVFoundation on macOS.                                                    |
+| `reel-render`   | The one wgpu compositor, used by both the preview and export.                                                   |
+| `reel-capture`  | Screen, mic, webcam and cursor capture.                                                                         |
+| `reel-recorder` | A separate recording process, so a crash in the app can't lose a recording.                                     |
+| `reel-captions` | Whisper, segmentation, and subtitle files.                                                                      |
+| `reel-cli`      | Headless rendering.                                                                                             |
+| `reel-app`      | The app: Dioxus with [Rust/UI](https://rust-ui.com/) for controls, and wgpu showing through a hole in the page. |
 
 `BUILD_PLAN.md` is the plan and its progress, and `docs/spikes.md` has what the early experiments found.
 
@@ -89,4 +89,4 @@ Two slower tests only run when asked for: a ten-minute recording (`cargo test --
 
 ## Licence
 
-AGPL-3.0-only. See `LICENSE`, and `THIRD-PARTY.md` for everything it builds on. The cursors are original art, and the gradients are Reel's own.
+AGPL-3.0-only. See `LICENSE`, and `THIRD-PARTY.md` for everything it builds on.
