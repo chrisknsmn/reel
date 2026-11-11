@@ -2,7 +2,7 @@
 //!
 //! Unlike an export, nothing here can wait: frames arrive in real time, so one that can't be taken is
 //! dropped and counted. The file is written in fragments, so a crash leaves everything up to the last
-//! fragment playable (§58, §59).
+//! fragment playable.
 //!
 //! Sound files come out continuous. A gap in what arrives is filled with silence and a small overlap
 //! is pulled into place, which keeps every sample within `TOLERANCE` of its true time. Anything reading

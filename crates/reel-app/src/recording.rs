@@ -1,4 +1,4 @@
-//! Running the recorder process, and everything that turns its output into a project (§30, §48).
+//! Running the recorder process, and everything that turns its output into a project.
 
 use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Write};
@@ -139,7 +139,7 @@ pub async fn permissions() -> Permissions {
     }
 }
 
-/// Shows the system's prompt, for something the user has just tried to use (§48).
+/// Shows the system's prompt, for something the user has just tried to use.
 pub async fn request_permission(what: &str) -> bool {
     ask(vec!["request".to_string(), what.to_string()])
         .await
@@ -259,7 +259,7 @@ pub fn save_project_for(video: &Path, duration: Micros) -> Result<PathBuf, Strin
     write_project(video, &project)
 }
 
-/// Adds zooms around clusters of clicks, unless the video is close to square or portrait (§10).
+/// Adds zooms around clusters of clicks, unless the video is close to square or portrait.
 pub fn add_suggested_zooms(
     project: &mut Project,
     track: &reel_motion::cursor::CursorTrack,
@@ -291,7 +291,7 @@ pub struct RecoveredRecording {
     pub project: PathBuf,
 }
 
-/// Saves whatever was cut off in a folder, by a crash or a power cut (§59).
+/// Saves whatever was cut off in a folder, by a crash or a power cut.
 pub async fn recover_interrupted(folder: PathBuf) -> Vec<Result<RecoveredRecording, String>> {
     let found = tokio::task::spawn_blocking(move || find_interrupted(&folder))
         .await

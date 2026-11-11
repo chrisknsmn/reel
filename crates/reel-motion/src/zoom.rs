@@ -1,4 +1,4 @@
-//! How strong each zoom is at a given time (§32).
+//! How strong each zoom is at a given time.
 
 use reel_core::time::TimelineTime;
 use reel_core::timeline::Zoom;
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn strength_follows_the_documented_timing() {
-        // §32 for a zoom from 5,000 to 11,000 ms with 200 ms eases:
+        // For a zoom from 5,000 to 11,000 ms with 200 ms eases:
         // t' = t − 200, leadIn = start + 1000 − 1522.575 = 4477.425, zoomInEnd = leadIn + 200,
         // zoomOutStart = end − 500 = 10,500, leadOutEnd = 10,700.
         let z = zoom(5000.0, 11_000.0);

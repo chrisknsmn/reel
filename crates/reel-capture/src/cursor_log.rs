@@ -1,5 +1,5 @@
-//! Cursor data, streamed to disk as it's recorded (§28). Recordly keeps it in memory and caps it at
-//! about an hour. Here there's no limit, and a crash loses at most the last moment of it.
+//! Cursor data, streamed to disk as it's recorded. There's no limit on how long, and a crash loses at
+//! most the last moment of it.
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn more_than_recordlys_limit_is_kept() {
+    fn more_than_an_hour_is_kept() {
         let folder = tempfile::tempdir().unwrap();
         let (log_path, output) = (folder.path().join("a.jsonl"), folder.path().join("a.json"));
         let mut log = CursorLog::create(&log_path).unwrap();

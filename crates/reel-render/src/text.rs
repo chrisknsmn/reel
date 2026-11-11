@@ -165,7 +165,7 @@ impl TextPainter {
             1.4,
             Some((width as f32 - padding * 2.0).max(1.0)),
         );
-        // Text sits in the middle of its box, as it does in Recordly.
+        // Text sits in the middle of its box.
         let total: f32 = buffer.layout_runs().map(|run| run.line_height).sum();
         let top = ((height as f32 - total) / 2.0).max(0.0);
         let color = parse_color(&style.color).unwrap_or([1.0, 1.0, 1.0, 1.0]);

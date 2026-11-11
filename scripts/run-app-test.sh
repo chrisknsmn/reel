@@ -70,24 +70,39 @@ for index in range(int(20000 / 33)):
     })
 json.dump({"version": 2, "provider": "native", "samples": samples}, open(sys.argv[1], "w"))
 PYTHON
-    cat > "$work/test.recordly" <<JSON
-{ "version": 1, "videoPath": "$video", "editor": {
-  "wallpaper": "linear-gradient(135deg, #1e3a8a, #9333ea)", "shadowIntensity": 0.67, "borderRadius": 12.5,
-  "padding": 20, "aspectRatio": "16:9", "cursorClickEffect": "echo",
-  "webcam": { "enabled": true, "sourcePath": "$webcam", "mirror": true, "positionPreset": "bottom-right",
-    "size": 25, "width": 25, "height": 25 },
-  "annotationRegions": [
-    { "id": "a", "startMs": 0, "endMs": 20000, "type": "figure", "x": 5, "y": 5, "width": 20, "height": 25,
-      "position": { "x": 5, "y": 5 }, "size": { "width": 20, "height": 25 },
-      "figureData": { "arrowDirection": "right", "color": "#FFFFFF", "strokeWidth": 6 } },
-    { "id": "b", "startMs": 0, "endMs": 20000, "type": "blur", "blurIntensity": 18,
-      "position": { "x": 40, "y": 60 }, "size": { "width": 25, "height": 25 } },
-    { "id": "t", "startMs": 0, "endMs": 20000, "type": "text", "textContent": "Reel",
-      "position": { "x": 60, "y": 8 }, "size": { "width": 25, "height": 15 } } ],
-  "zoomRegions": [{ "id": "z", "startMs": 3000, "endMs": 7000, "depth": 3, "focus": { "cx": 0.7, "cy": 0.3 }, "mode": "manual" }],
-  "clipRegions": [{ "id": "c", "startMs": 0, "endMs": 20000, "speed": 1 }] } }
-JSON
-    "$root/target/release/reel-cli" convert "$work/test.recordly" "$project" --force > /dev/null
+    # The project: a gradient, a webcam, an arrow, a blur, some text and a zoom, all 20 s long.
+    python3 -I - "$project" "$video" "$webcam" <<'PYTHON'
+import json, os, sys
+project, video, webcam = sys.argv[1:4]
+s = 1_000_000
+tracks = []
+if os.path.exists(video + ".mic.m4a"):
+    tracks.append({"kind": "mic", "file": {"absolute": video + ".mic.m4a"}, "volume": 1.0, "boost": False})
+def annotation(id, content, x, y, width, height):
+    return {"id": id, "start": 0, "end": 20 * s, "content": content,
+            "position": {"x": x, "y": y}, "width": width, "height": height}
+json.dump({
+    "format": "reel-project", "version": 1, "id": "app-test",
+    "media": {"video": {"absolute": video}, "cursor_data": {"absolute": video + ".cursor.json"},
+              "source_tracks": tracks},
+    "look": {"background": {"kind": "gradient", "value": "linear-gradient(135deg, #1e3a8a, #9333ea)"},
+             "shadow": 0.67, "corner_radius": 12.5, "aspect_ratio": "16:9"},
+    "cursor": {"click_effect": "echo"},
+    "webcam": {"enabled": True, "source": {"absolute": webcam}, "mirror": True,
+               "position": "bottom_right", "width": 25, "height": 25},
+    "timeline": {
+        "source_duration": 20 * s,
+        "clips": [{"id": "c", "start": 0, "duration": 20 * s, "source_start": 0, "speed": 1.0}],
+        "zooms": [{"id": "z", "start": 3 * s, "end": 7 * s, "depth": 2, "focus": {"x": 0.7, "y": 0.3},
+                   "mode": "manual"}],
+        "annotations": [
+            annotation("a", {"kind": "arrow", "direction": "right", "color": "#FFFFFF", "stroke_width": 6}, 5, 5, 20, 25),
+            annotation("b", {"kind": "blur", "strength": 18}, 40, 60, 25, 25),
+            annotation("t", {"kind": "text", "text": "Reel"}, 60, 8, 25, 15),
+        ],
+    },
+}, open(project, "w"), indent=2)
+PYTHON
 fi
 
 rm -rf "$app" "$results"

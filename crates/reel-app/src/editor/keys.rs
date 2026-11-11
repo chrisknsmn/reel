@@ -1,4 +1,4 @@
-//! Keyboard shortcuts (§23), kept apart from the UI so they can be tested.
+//! Keyboard shortcuts, kept apart from the UI so they can be tested.
 
 use std::collections::BTreeMap;
 
@@ -113,7 +113,7 @@ pub fn action_for(pressed: &str, bound: &BTreeMap<String, String>) -> Option<Act
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Rebind {
     Fine,
-    /// Fixed keys are reserved (§23).
+    /// Fixed keys are reserved.
     Reserved,
     /// Another shortcut has it, which it could swap with.
     Conflict {

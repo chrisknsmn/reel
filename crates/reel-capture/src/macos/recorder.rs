@@ -274,7 +274,7 @@ impl Recorder {
     }
 
     /// Takes a webcam frame, captured at a host time. Its file starts from its own first frame, and
-    /// the gap between that and the recording's start is kept as the sync offset (§27).
+    /// the gap between that and the recording's start is kept as the sync offset.
     pub fn on_webcam_frame(&self, buffer: &CVPixelBuffer, host: Micros) {
         let Some(time) = lock(&self.clock).place(host.0) else {
             return;
@@ -364,7 +364,7 @@ impl Recorder {
             return Err("The recording ended before any frames were kept.".to_string());
         }
         // Screens only send frames when something changes, so add one at the very end to make the
-        // video as long as the recording was (§27).
+        // video as long as the recording was.
         if let Some(Held(frame)) = &held
             && video
                 .last_time()
@@ -436,7 +436,7 @@ impl Recorder {
     }
 }
 
-/// The checks a finished recording must pass (§6): at least 1,024 bytes, a video stream, a duration
+/// The checks a finished recording must pass: at least 1,024 bytes, a video stream, a duration
 /// above zero, and one frame that decodes.
 ///
 /// # Errors
@@ -468,7 +468,7 @@ pub struct Recovered {
     pub duration: Micros,
 }
 
-/// Saves what can be saved from a recording that got cut off (§59).
+/// Saves what can be saved from a recording that got cut off.
 ///
 /// # Errors
 /// Returns why not, when even the video isn't playable.

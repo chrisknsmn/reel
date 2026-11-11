@@ -1,4 +1,4 @@
-//! Recorded cursor data (§28), which lives on the recording's clock.
+//! Recorded cursor data, which lives on the recording's clock.
 
 use reel_core::time::SourceTime;
 use serde::{Deserialize, Serialize};

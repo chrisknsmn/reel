@@ -1,4 +1,4 @@
-//! Diagnostics (§55): what happened during recordings and exports, kept on this machine, to help when
+//! Diagnostics: what happened during recordings and exports, kept on this machine, to help when
 //! something goes wrong. Nothing here is ever sent anywhere.
 
 use std::io::Write;

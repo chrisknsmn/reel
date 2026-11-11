@@ -13,7 +13,7 @@ use reel_core::time::{Micros, TimelineTime};
 use super::math::View;
 use crate::preview;
 
-/// Which panel the icon rail has chosen (§7).
+/// Which panel the icon rail has chosen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Rail {
     Scene,
@@ -44,7 +44,7 @@ pub struct Ed {
     pub notice: Signal<Option<String>>,
     pub rail: Signal<Rail>,
     pub overlay: Signal<Overlay>,
-    /// Markers only: they aren't saved and can't be undone (§14).
+    /// Markers only: they aren't saved and can't be undone.
     pub keyframes: Signal<Vec<TimelineTime>>,
     /// Where the preview's clear area is, in CSS pixels.
     pub hole: Signal<(f64, f64, f64, f64)>,

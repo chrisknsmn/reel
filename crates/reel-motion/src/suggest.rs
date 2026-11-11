@@ -1,4 +1,4 @@
-//! Suggesting zooms from where the user clicked (§33).
+//! Suggesting zooms from where the user clicked.
 
 use reel_core::time::{Micros, TimelineTime};
 use reel_core::timeline::{Point, Timeline};
@@ -140,7 +140,7 @@ pub fn suggest_zooms(track: &CursorTrack, timeline: &Timeline) -> Vec<Suggestion
     suggestions
 }
 
-/// Suggestions only make sense on landscape video. A source near square or portrait gets none (§10).
+/// Suggestions only make sense on landscape video. A source near square or portrait gets none.
 #[must_use]
 pub fn suits_auto_zoom(width: u32, height: u32) -> bool {
     f64::from(width) / f64::from(height.max(1)) >= 1.2
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn click_times_go_through_the_clips() {
-        // §58: at 2×, a click 10 s into the recording belongs at 5 s on the timeline.
+        // At 2×, a click 10 s into the recording belongs at 5 s on the timeline.
         let mut timeline = timeline();
         timeline
             .apply(&Edit::SetClipSpeed {

@@ -1,4 +1,4 @@
-//! Generating captions, and the edits on them that aren't single timeline operations (§12, §36).
+//! Generating captions, and the edits on them that aren't single timeline operations.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -57,8 +57,8 @@ pub struct AudioChoice {
     pub path: PathBuf,
 }
 
-/// What can be transcribed. The mic goes first, since that's almost always the speech: Recordly only
-/// looks at the recording, so it often finds the wrong track, or nothing (§36, BUILD_PLAN 9.2).
+/// What can be transcribed. The mic goes first, since that's almost always the speech. Looking only
+/// at the recording often finds the wrong track, or nothing (BUILD_PLAN 9.2).
 #[must_use]
 pub fn audio_choices(ed: &Ed) -> Vec<AudioChoice> {
     let Some(project) = ed.project() else {

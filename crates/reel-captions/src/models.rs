@@ -1,5 +1,5 @@
-//! Whisper's model files: where they come from, and checking they arrived intact (§12, BUILD_PLAN 9.1).
-//! Recordly downloads without a checksum, so a cut-off file looks fine until it fails.
+//! Whisper's model files: where they come from, and checking they arrived intact (BUILD_PLAN 9.1).
+//! Without a checksum, a cut-off file would look fine until it failed.
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -16,7 +16,7 @@ pub struct Model {
     pub megabytes: u64,
 }
 
-/// What Recordly uses, and what Reel offers by default (§12).
+/// What Reel offers by default.
 pub const SMALL: Model = Model {
     name: "Small",
     file: "ggml-small.bin",

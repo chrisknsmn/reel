@@ -173,7 +173,7 @@ impl Encoder {
                     reordering.as_ref(),
                 ),
             ]);
-            // BT.709, tagged so players show the colours as they were composited (§39).
+            // BT.709, tagged so players show the colours as they were composited.
             let color = dictionary(&[
                 (
                     AVVideoColorPrimariesKey.expect("exists"),
@@ -308,7 +308,7 @@ impl Encoder {
         ))
     }
 
-    /// Adds the next frame, which is always one frame's time after the last (§39).
+    /// Adds the next frame, which is always one frame's time after the last.
     ///
     /// # Errors
     /// Returns an error if the encoder has failed.

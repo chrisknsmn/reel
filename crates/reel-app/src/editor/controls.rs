@@ -35,8 +35,8 @@ pub fn format_value(value: f64, step: f64, format: Format) -> String {
     }
 }
 
-/// A labelled slider with its value and a reset. Recordly's sliders have no typed entry or reset to
-/// defaults (§7), so this adds both a reset button and double-clicking the label.
+/// A labelled slider with its value and a reset to its default, from a reset button or by
+/// double-clicking the label.
 #[component]
 pub fn SliderRow(
     label: String,

@@ -1,5 +1,5 @@
-//! The settings panel beside the preview (§8–§13). Selecting something on the timeline swaps it for
-//! that item's own settings (§7).
+//! The settings panel beside the preview. Selecting something on the timeline swaps it for
+//! that item's own settings.
 
 use dioxus::prelude::*;
 use reel_core::edit::Edit;
@@ -24,7 +24,7 @@ const COLOR_SWATCHES: [&str; 15] = [
 const EFFECT_SWATCHES: [&str; 8] = [
     "#2563EB", "#EF4444", "#F59E0B", "#22C55E", "#A855F7", "#EC4899", "#14B8A6", "#F97316",
 ];
-/// Reel's own gradients. Recordly's wallpapers aren't carried over, because their origin isn't known (D8).
+/// Reel's own gradients.
 const GRADIENTS: [&str; 12] = [
     "linear-gradient(135deg, #1e3a8a, #9333ea)",
     "linear-gradient(135deg, #0f172a, #334155)",
@@ -105,7 +105,7 @@ fn ScenePanel(project: Project) -> Element {
     };
     let padding = look.padding;
     let crop = look.crop;
-    // No background means zero padding, no shadow and the video's own shape (§8).
+    // No background means zero padding, no shadow and the video's own shape.
     let removed =
         padding == Padding::uniform(0.0) && look.aspect_ratio == "native" && look.shadow == 0.0;
     rsx! {
@@ -204,7 +204,7 @@ fn ScenePanel(project: Project) -> Element {
                     ed.change("padding-linked", |p| {
                         let old = p.look.padding;
                         p.look.padding.linked = linked;
-                        // Relinking averages the four sides (§8).
+                        // Relinking averages the four sides.
                         if linked {
                             let average = (old.top + old.bottom + old.left + old.right) / 4.0;
                             p.look.padding = Padding::uniform(average.round());
@@ -292,7 +292,7 @@ pub enum CropEdge {
     Right,
 }
 
-/// The least of the video a crop leaves, as a fraction (§8).
+/// The least of the video a crop leaves, as a fraction.
 const SMALLEST_CROP: f64 = 0.05;
 
 /// Sets one side's inset in percent, keeping at least a little of the video.
@@ -321,7 +321,7 @@ pub fn set_crop_edge(project: &mut Project, edge: CropEdge, percent: f64) {
     }
 }
 
-/// The least of the webcam's picture a crop leaves (§11).
+/// The least of the webcam's picture a crop leaves.
 const SMALLEST_WEBCAM_CROP: f64 = 0.08;
 
 /// Sets one side of the webcam's crop, in percent.
@@ -581,7 +581,7 @@ fn WebcamPanel(project: Project) -> Element {
                 onchange: move |value| ed.change("webcam-shadow", |p| p.webcam.shadow = value),
                 onrelease: move |()| ed.end_gesture(),
             }
-            // Recordly has no control for this (§11), though a late camera often needs it.
+            // A late camera often needs this.
             SliderRow { label: "Sync offset", value: webcam.offset.ms(), min: -2000.0, max: 2000.0, step: 10.0, default: webcam.offset.ms(), format: Format::Milliseconds,
                 onchange: move |value: f64| ed.change("webcam-offset", |p| p.webcam.offset = reel_core::time::Micros::from_ms(value)),
                 onrelease: move |()| ed.end_gesture(),
@@ -668,7 +668,7 @@ fn settings_path() -> std::path::PathBuf {
     recording::support_folder().join("settings.json")
 }
 
-/// Puts a motion preset's values on a project (§19).
+/// Puts a motion preset's values on a project.
 pub fn apply_motion_preset(project: &mut Project, preset: MotionPreset) {
     let (zoom_in, zoom_out, stiffness, damping) = match preset {
         MotionPreset::Focused => (200.0, 200.0, 1.35, 0.79),
@@ -886,8 +886,8 @@ fn ClipPanel(id: ItemId) -> Element {
                 }
             }
         }
-        // Recordly can't do this: its clips have no separate source position, so moving one changes
-        // which footage it shows (§15, BUILD_PLAN 6.6).
+        // Clips have their own source position, so moving one keeps the footage it shows
+        // (BUILD_PLAN 6.6).
         Section { title: "Order",
             div { class: "row-buttons",
                 button {
@@ -1355,7 +1355,7 @@ fn AnnotationPanel(id: ItemId) -> Element {
     }
 }
 
-/// A new annotation (§13): a second long, centred, at 30×20% of the frame.
+/// A new annotation: a second long, centred, at 30×20% of the frame.
 #[must_use]
 pub fn new_annotation(
     id: ItemId,

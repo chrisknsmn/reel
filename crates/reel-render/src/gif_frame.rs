@@ -1,4 +1,4 @@
-//! Reducing a frame to a GIF's 256 colours (§43): its own palette, with Floyd-Steinberg dithering.
+//! Reducing a frame to a GIF's 256 colours: its own palette, with Floyd-Steinberg dithering.
 
 use color_quant::NeuQuant;
 

@@ -241,7 +241,7 @@ fn arrow_paths(direction: ArrowDirection) -> &'static [[(f32, f32); 2]; 3] {
     }
 }
 
-/// Draws an arrow into its own image, from the 100×100 paths Recordly uses (§13).
+/// Draws an arrow into its own image, from 100×100 paths.
 fn arrow_image(
     direction: ArrowDirection,
     color: [f32; 4],

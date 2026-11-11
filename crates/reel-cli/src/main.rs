@@ -5,28 +5,19 @@ use std::process::ExitCode;
 
 use reel_core::format;
 use reel_core::project::Project;
-use reel_core::recordly::{self, ImportOptions};
-use reel_core::store;
-use reel_core::time::{Micros, TimelineTime};
+use reel_core::time::TimelineTime;
 
 const USAGE: &str = "\
 Usage:
-  reel-cli convert <project.recordly> [output.reel] [--force] [--source-duration-ms <ms>]
-      Converts a Recordly project into a Reel project, without changing the original.
+  reel-cli render <project.reel> <output.mp4> [--fps <n>]
+      Exports a project to an MP4.
 
-      --force                  Overwrite the output if it exists.
-      --source-duration-ms     How long the recording is. Only needed for old projects with trims but no clips.
-
-  reel-cli render <project> <output.mp4> [--fps <n>]
-      Exports a project to an MP4. The project can be .reel or .recordly.
-
-  reel-cli frame <project> --at-ms <ms> <output.png>
+  reel-cli frame <project.reel> --at-ms <ms> <output.png>
       Renders one frame of a project, exactly as the preview shows it.";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
-        Some("convert") => convert(&args[1..]),
         Some("render") => render(&args[1..]),
         Some("frame") => frame(&args[1..]),
         _ => Err(USAGE.to_string()),
@@ -40,97 +31,18 @@ fn main() -> ExitCode {
     }
 }
 
-fn convert(args: &[String]) -> Result<(), String> {
-    let mut paths = Vec::new();
-    let mut force = false;
-    let mut source_duration = None;
-    let mut iter = args.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--force" => force = true,
-            "--source-duration-ms" => {
-                let value = iter.next().ok_or_else(|| USAGE.to_string())?;
-                let ms: f64 = value
-                    .parse()
-                    .map_err(|_| format!("Not a number of milliseconds: {value}"))?;
-                source_duration = Some(Micros::from_ms(ms));
-            }
-            other if other.starts_with("--") => return Err(USAGE.to_string()),
-            other => paths.push(PathBuf::from(other)),
-        }
-    }
-    let (input, output) = match paths.as_slice() {
-        [input] => (input.clone(), input.with_extension(format::EXTENSION)),
-        [input, output] => (input.clone(), output.clone()),
-        _ => return Err(USAGE.to_string()),
-    };
-    if output.exists() && !force {
-        return Err(format!(
-            "{} already exists. Use --force to overwrite it.",
-            output.display()
-        ));
-    }
-
-    let text = std::fs::read_to_string(&input)
-        .map_err(|error| format!("Couldn't read {}: {error}", input.display()))?;
-    let options = ImportOptions {
-        source_duration,
-        find_sidecars: true,
-    };
-    let imported = recordly::import(&text, options)
-        .map_err(|error| format!("{}: {error}", input.display()))?;
-    for warning in &imported.warnings {
-        eprintln!("Warning: {warning}");
-    }
-
-    let mut project = imported.project;
-    if let Some(folder) = absolute_folder(&output) {
-        project.rebase_media(&folder);
-    }
-    store::atomic_write(&output, format::to_string(&project).as_bytes(), false)
-        .map_err(|error| format!("Couldn't write {}: {error}", output.display()))?;
-    println!("Wrote {}", output.display());
-    Ok(())
-}
-
-fn absolute_folder(output: &Path) -> Option<PathBuf> {
-    let folder = output
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    std::fs::canonicalize(folder).ok()
-}
-
-/// Reads a project of either kind, along with the folder its relative paths start from.
+/// Reads a project, along with the folder its relative paths start from.
 #[allow(dead_code)]
 fn load_project(path: &Path) -> Result<(Project, Option<PathBuf>), String> {
     let text = std::fs::read_to_string(path)
         .map_err(|error| format!("Couldn't read {}: {error}", path.display()))?;
-    let is_recordly = path
-        .extension()
-        .is_some_and(|ext| ext == "recordly" || ext == "openscreen");
+    let project =
+        format::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
     let folder = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .map(Path::to_path_buf);
-    if is_recordly {
-        let imported = recordly::import(
-            &text,
-            ImportOptions {
-                source_duration: None,
-                find_sidecars: true,
-            },
-        )
-        .map_err(|error| format!("{}: {error}", path.display()))?;
-        for warning in &imported.warnings {
-            eprintln!("Warning: {warning}");
-        }
-        Ok((imported.project, folder))
-    } else {
-        let project =
-            format::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
-        Ok((project, folder))
-    }
+    Ok((project, folder))
 }
 
 #[cfg(target_os = "macos")]

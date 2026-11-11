@@ -2,8 +2,7 @@
 //! they can't disagree about how a project looks (BUILD_PLAN approach 4).
 //!
 //! The draw order is fixed: background, shadow, then video, cursor and annotations inside the camera,
-//! then webcam and captions outside it. That settles the disagreement between Recordly's three paths
-//! (§31).
+//! then webcam and captions outside it, and it's the same in preview and export.
 
 pub mod cursors;
 mod gif_frame;
@@ -28,8 +27,7 @@ use gradient::{Gradient, Shape, parse_color};
 /// Everything the renderer draws into has this format, holding encoded (not linear) colour.
 pub const WORKING_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// The blur setting is multiplied by this at a stage 1080 pixels tall. Recordly's preview and export
-/// disagree about this (§31), and this is what its export uses.
+/// The blur setting is multiplied by this at a stage 1080 pixels tall, in preview and export alike.
 const BLUR_FACTOR: f64 = 3.0;
 
 /// The current video frame, in whichever form it reached the GPU.
@@ -404,7 +402,7 @@ impl Renderer {
         }
     }
 
-    /// Draws a frame of a video background, covering the stage, and blurs it if the look asks (§31).
+    /// Draws a frame of a video background, covering the stage, and blurs it if the look asks.
     /// A video changes every frame, so unlike other backgrounds this can't be kept from one to the next.
     fn draw_video_background(
         &self,

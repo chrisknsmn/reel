@@ -167,7 +167,7 @@ pub fn PreviewOverlay() -> Element {
     let selection = ed.selection();
     let hole_left_top = ((ed.hole)().0, (ed.hole)().1);
 
-    // A selected zoom on a fixed spot can be aimed by clicking or dragging on the preview (§10).
+    // A selected zoom on a fixed spot can be aimed by clicking or dragging on the preview.
     let aimed = match &selection {
         Selection::Zoom(id) => project
             .timeline
@@ -195,7 +195,7 @@ pub fn PreviewOverlay() -> Element {
         });
     };
 
-    // A bubble that can be dragged around, which Recordly's can't (§11).
+    // A bubble that can be dragged around.
     let webcam_bubble = preview::webcam_size()
         .filter(|_| project.webcam.enabled)
         .map(|size| {
@@ -424,7 +424,7 @@ pub fn dragged_crop(crop: Crop, grip: CropGrip, to: f64) -> Crop {
 }
 
 /// Shows the whole video with its crop on top. Done keeps it, as a single undo step, and Cancel puts
-/// things back (§8, BUILD_PLAN 7.1).
+/// things back (BUILD_PLAN 7.1).
 #[component]
 fn CropEditor() -> Element {
     let mut ed = use_ed();
@@ -533,7 +533,7 @@ fn CropEditor() -> Element {
     }
 }
 
-/// The annotation under the playhead after this one, for Tab (§13).
+/// The annotation under the playhead after this one, for Tab.
 #[must_use]
 pub fn cycle_annotation(
     annotations: &[reel_core::timeline::Annotation],

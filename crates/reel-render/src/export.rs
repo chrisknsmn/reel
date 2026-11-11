@@ -88,7 +88,7 @@ pub struct VideoFile {
 }
 
 impl VideoFile {
-    /// Which of its moments shows at a time on the timeline. It loops (§31).
+    /// Which of its moments shows at a time on the timeline. It loops.
     #[must_use]
     pub fn time_at(&self, time: TimelineTime) -> SourceTime {
         SourceTime(time.0.max(0).rem_euclid(self.duration.0.max(1)))
@@ -369,7 +369,7 @@ impl BackgroundReader {
     }
 }
 
-/// Which output frame shows what. Gaps between clips are skipped (§41).
+/// Which output frame shows what. Gaps between clips are skipped.
 struct OutputClock<'a> {
     clips: &'a [Clip],
     fps: f64,
@@ -669,7 +669,7 @@ fn write_mp4(
     })
 }
 
-/// The size a GIF comes out at: the stage's shape, with its height capped, and even (§43).
+/// The size a GIF comes out at: the stage's shape, with its height capped, and even.
 #[must_use]
 pub fn gif_size(stage: (u32, u32), size: GifSize) -> (u32, u32) {
     let cap = match size {
@@ -687,8 +687,7 @@ pub fn gif_size(stage: (u32, u32), size: GifSize) -> (u32, u32) {
 }
 
 /// How long each frame of a GIF shows, in the hundredths of a second it has to be given in. Rounding
-/// each by itself would change the frame rate, as it does in Recordly (§43). Rounding the running total
-/// keeps the average right.
+/// each by itself would change the frame rate. Rounding the running total keeps the average right.
 #[must_use]
 pub fn gif_delay(frame: u64, fps: u32) -> u16 {
     let at = |index: u64| (index as f64 * 100.0 / f64::from(fps.max(1))).round() as u64;
@@ -735,7 +734,7 @@ pub fn export_gif(
             gif::Encoder::new(std::io::BufWriter::new(file), gif_width, gif_height, &[])
                 .map_err(|error| ExportError(format!("The GIF couldn't be started: {error}")))?;
         // A GIF with no repeat block plays once. Asking for a repeat count of 0 would loop forever, in
-        // every viewer, which is how "loop off" still loops in Recordly (§58).
+        // every viewer, so "loop off" would still loop.
         if settings.gif_loop {
             writer
                 .set_repeat(gif::Repeat::Infinite)

@@ -1,4 +1,4 @@
-//! Edits to the timeline, as commands, with the overlap rules in §14 and §15.
+//! Edits to the timeline, as commands, with their overlap rules.
 //!
 //! Each edit either succeeds and leaves the timeline valid, or fails and changes nothing. Dragging
 //! sends edits with the pointer's position, and most clamp it to something legal rather than fail.
@@ -9,7 +9,7 @@ use crate::timeline::{
     Timeline, Zoom, ZoomMode,
 };
 
-/// A new zoom lasts this long, and needs this much room (§10).
+/// A new zoom lasts this long, and needs this much room.
 pub const NEW_ZOOM: Micros = Micros(1_000_000);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +31,7 @@ pub enum Edit {
         to: TimelineTime,
     },
     /// Drags a clip along the timeline. It stops at a neighbour, or jumps past one once its centre
-    /// has crossed the neighbour's, and it can go past the end to grow the timeline (§14).
+    /// has crossed the neighbour's, and it can go past the end to grow the timeline.
     MoveClip {
         id: ItemId,
         to: TimelineTime,
@@ -121,7 +121,7 @@ pub enum Edit {
         track: Option<u32>,
     },
     /// Audio always plays from the start of its file, so the left edge moves the item rather than
-    /// cutting into the sound (§16).
+    /// cutting into the sound.
     ResizeAudio {
         id: ItemId,
         edge: Edge,
@@ -144,7 +144,7 @@ pub enum Edit {
         end: TimelineTime,
         text: String,
     },
-    /// Rejected if it would overlap another caption (§14).
+    /// Rejected if it would overlap another caption.
     MoveCaption {
         id: ItemId,
         to: TimelineTime,
@@ -515,8 +515,8 @@ impl Timeline {
         done()
     }
 
-    /// Makes room after a trim. Items entirely inside the removed part go. Recordly also deletes
-    /// anything partly inside it, which loses work (BUILD_PLAN 6.6), so those are shortened instead.
+    /// Makes room after a trim. Items entirely inside the removed part go. Items partly inside it are
+    /// shortened instead, so no work is lost (BUILD_PLAN 6.6).
     fn clear_span(&mut self, from: TimelineTime, to: TimelineTime) {
         fn trim(
             start: &mut TimelineTime,
@@ -570,8 +570,8 @@ impl Timeline {
         let delta = start - clip.start;
         self.clips[index].start = start;
 
-        // Zooms inside the clip go with it (§15). Annotations and audio stay where they are, and
-        // aren't deleted as they are in Recordly: they can simply be moved back.
+        // Zooms inside the clip go with it. Annotations and audio stay where they are, and aren't
+        // deleted: they can simply be moved back.
         let (mut moving, staying): (Vec<_>, Vec<_>) = std::mem::take(&mut self.zooms)
             .into_iter()
             .partition(|zoom| zoom.start >= clip.start && zoom.start < clip.end());
@@ -656,7 +656,7 @@ impl Timeline {
         if duration < MIN_ITEM {
             return Err(EditError::TooShort);
         }
-        // Later clips never shift (§15), so a longer clip has to fit before the next one.
+        // Later clips never shift, so a longer clip has to fit before the next one.
         if let Some(next) = self.clips.get(index + 1)
             && clip.start + duration > next.start
         {
@@ -664,7 +664,7 @@ impl Timeline {
         }
         let ratio = duration.0 as f64 / clip.duration.0 as f64;
 
-        // Zooms that start inside the clip keep their place in the footage (§15).
+        // Zooms that start inside the clip keep their place in the footage.
         let zooms = &mut self.zooms;
         let inside: Vec<usize> = zooms
             .iter()
@@ -719,7 +719,7 @@ impl Timeline {
         mode: ZoomMode,
     ) -> EditResult {
         // A zoom must start inside a clip, must not overlap another, and needs a full second before
-        // the next zoom or the clip's end (§10).
+        // the next zoom or the clip's end.
         let clip = self.clip_at(start).ok_or(EditError::NoClipHere)?;
         let clip_end = clip.end();
         let end = start + NEW_ZOOM;
@@ -789,7 +789,7 @@ impl Timeline {
     fn add_audio(&mut self, item: &AudioItem) -> EditResult {
         let mut item = item.clone();
         item.id = self.new_id("audio");
-        // A new item lands on a new track, so it never overlaps (§16).
+        // A new item lands on a new track, so it never overlaps.
         item.track = self
             .audio
             .iter()
@@ -1028,7 +1028,7 @@ impl Timeline {
 }
 
 /// Finds where a dragged clip lands. It stops against a neighbour, or jumps past one once its centre
-/// has crossed the neighbour's centre (§14). `None` means no legal place was found.
+/// has crossed the neighbour's centre. `None` means no legal place was found.
 fn place_clip(
     others: &[(TimelineTime, TimelineTime)],
     length: Micros,
@@ -1083,7 +1083,6 @@ mod tests {
 
     #[test]
     fn splitting_keeps_every_frame_where_it_was_at_any_speed() {
-        // Recordly misaligns the right half at speeds other than 1× (§58).
         for speed in CLIP_SPEEDS {
             let mut t = timeline();
             t.apply(&Edit::SetClipSpeed {
@@ -1123,7 +1122,6 @@ mod tests {
 
     #[test]
     fn a_moved_clip_keeps_showing_the_same_footage() {
-        // Recordly's clips have no source position, so moving one changes what it shows (§15).
         let mut t = timeline();
         t.apply(&Edit::TrimClip {
             id: "clip-1".into(),
@@ -1240,7 +1238,6 @@ mod tests {
 
     #[test]
     fn trimming_shortens_items_rather_than_deleting_them() {
-        // Recordly deletes anything that overlaps the removed part, even partly (§15).
         let mut t = timeline();
         apply(
             &mut t,

@@ -1,4 +1,4 @@
-//! What can be recorded, filtered and named as in §3 and §27.
+//! What can be recorded, and how each source is filtered and named.
 
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ pub struct WindowSource {
     pub thumbnail: Option<std::path::PathBuf>,
 }
 
-/// Whether a bundle is part of Reel, whose own windows are never offered (§3).
+/// Whether a bundle is part of Reel, whose own windows are never offered.
 #[must_use]
 pub fn is_reel(bundle: &str) -> bool {
     bundle == "dev.reel" || bundle.starts_with("dev.reel.")
@@ -84,14 +84,14 @@ pub fn should_offer(window: &WindowSource) -> bool {
         && !(window.app.is_empty() && window.title.is_empty())
 }
 
-/// Recording settings for a size, from the table in §27. H.264 needs even sizes.
+/// Recording settings for a size. H.264 needs even sizes.
 #[must_use]
 pub fn even_size(width: f64, height: f64) -> (u32, u32) {
     let even = |value: f64| ((value.round() as u32) & !1).max(2);
     (even(width), even(height))
 }
 
-/// The bitrate for a recording: high enough that re-encoding on export doesn't show it (§27).
+/// The bitrate for a recording: high enough that re-encoding on export doesn't show it.
 #[must_use]
 pub fn recording_bitrate(width: u32, height: u32) -> u32 {
     let pixels = u64::from(width) * u64::from(height);

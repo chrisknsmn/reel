@@ -1,4 +1,4 @@
-//! The editor (§7): a header, an icon rail, a settings panel, the preview, and the timeline. Everything
+//! The editor: a header, an icon rail, a settings panel, the preview, and the timeline. Everything
 //! drawn in the export is drawn by wgpu, showing through a hole in this page.
 
 mod captions;
@@ -26,8 +26,7 @@ use icons::{
 use reel_core::edit::Edit;
 use reel_core::format;
 use reel_core::history::Selection;
-use reel_core::project::{Crop, Look, MediaRef, Project};
-use reel_core::recordly::{self, ImportOptions};
+use reel_core::project::{Crop, Look, MediaRef, Project, new_id};
 use reel_core::session::Session;
 use reel_core::settings::SettingsStore;
 use reel_core::time::{Micros, TimelineTime};
@@ -114,30 +113,17 @@ fn load_session(path: &Path, look: Option<&Path>) -> Result<(Session, Option<Pat
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .map(Path::to_path_buf);
-    let read = || {
-        std::fs::read_to_string(path)
-            .map_err(|error| format!("Couldn't read {}: {error}", path.display()))
-    };
     let (mut session, folder) = match extension.as_deref() {
         Some(format::EXTENSION) => (
             Session::open(path).map_err(|error| error.to_string())?,
             folder,
         ),
-        Some("recordly" | "openscreen") => {
-            let options = ImportOptions {
-                source_duration: None,
-                find_sidecars: true,
-            };
-            let imported =
-                recordly::import(&read()?, options).map_err(|error| error.to_string())?;
-            (Session::new(imported.project), folder)
-        }
         _ => {
             // A plain video, opened as a new project with one clip.
             let info = probe(path).map_err(|error| error.0)?;
             let absolute = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
             let mut project = Project {
-                id: recordly::new_id(),
+                id: new_id(),
                 timeline: Timeline::for_recording(info.duration),
                 ..Project::default()
             };
@@ -155,7 +141,7 @@ fn load_session(path: &Path, look: Option<&Path>) -> Result<(Session, Option<Pat
     Ok((session, folder))
 }
 
-/// A video that wasn't where the project said, and the session waiting for it (§59).
+/// A video that wasn't where the project said, and the session waiting for it.
 #[derive(Clone)]
 struct MissingVideo {
     session: Session,
@@ -231,7 +217,7 @@ fn add_zoom(ed: Ed) {
     }
 }
 
-/// Picks a sound file and puts it at the playhead, on a row of its own (§16).
+/// Picks a sound file and puts it at the playhead, on a row of its own.
 fn add_audio(ed: Ed) {
     let picked = rfd::FileDialog::new()
         .set_title("Add audio")
@@ -284,8 +270,7 @@ fn add_audio(ed: Ed) {
     });
 }
 
-/// Adds zooms around clusters of clicks. Recordly disables this when auto-apply is off, and blames
-/// cursor looping (§58). All it really needs is cursor data.
+/// Adds zooms around clusters of clicks. All it needs is cursor data.
 fn suggest(mut ed: Ed) {
     let Some(track) = preview::cursor_track() else {
         ed.notice.set(Some(
@@ -428,7 +413,7 @@ fn apply_theme(mut dark: Signal<bool>) {
 }
 
 /// Puts the editor on screen. This only happens with a project to show, so the window never appears
-/// empty (§48).
+/// empty.
 fn show_editor() {
     let window = dioxus::desktop::window();
     if !crate::editor_is_showing() {
@@ -507,7 +492,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
             } if *window_id == own_id => {
                 SHARED.set_surface_size(size.width, size.height);
             }
-            // Closing hides the window, so that its surface stays ready. The bar comes back (§48).
+            // Closing hides the window, so that its surface stays ready. The bar comes back.
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
@@ -517,7 +502,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
                 crate::set_editor_showing(false);
                 links::tell_bar(ToBar::EditorClosed);
             }
-            // A .reel file opened from Finder (§20).
+            // A .reel file opened from Finder.
             Event::Opened { urls } => {
                 for url in urls {
                     if let Ok(path) = url.to_file_path() {
@@ -559,7 +544,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
     use_future(move || async move {
         let mut inbox = links::listen_as_editor();
         while let Some(ToEditor::Open(path)) = inbox.recv().await {
-            // What's open is saved first, so opening something else can't lose it (§20).
+            // What's open is saved first, so opening something else can't lose it.
             let saved = ed
                 .session
                 .write()
@@ -618,7 +603,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
         }
     });
 
-    // Autosave: a second after a change, and new recordings too, which Recordly never saves (§20).
+    // Autosave: a second after a change, new recordings included.
     use_future(move || async move {
         let mut tick = tokio::time::interval(Duration::from_millis(300));
         loop {
@@ -661,7 +646,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
         }
     });
 
-    // The view resets when the timeline's length changes (§14), but not during a drag: rescaling it
+    // The view resets when the timeline's length changes, but not during a drag: rescaling it
     // under the mouse would move the thing being dragged, which would change the length again.
     let mut seen_total = use_signal(|| Micros::ZERO);
     use_effect(move || {
@@ -682,7 +667,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
         }
     });
 
-    // Dropping a video or project anywhere opens it (§20).
+    // Dropping a video or project anywhere opens it.
     let on_drop = move |event: DragEvent| {
         event.prevent_default();
         if let Some(file) = event.data_transfer().files().first() {
@@ -962,7 +947,7 @@ pub fn Editor(dark: Signal<bool>) -> Element {
     }
 }
 
-/// Picks an image and embeds it in the project (§13).
+/// Picks an image and embeds it in the project.
 fn add_image(mut ed: Ed) {
     let picked = rfd::FileDialog::new()
         .set_title("Add an image")

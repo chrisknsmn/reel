@@ -1,4 +1,4 @@
-//! The microphone and webcam, through AVFoundation (§4, §5, §27).
+//! The microphone and webcam, through AVFoundation.
 
 use std::cell::OnceCell;
 use std::sync::Arc;
@@ -222,7 +222,7 @@ impl DeviceCapture {
     /// Starts recording the mic.
     ///
     /// # Errors
-    /// Returns why it won't start. The recording carries on without it, and tells the user (§4).
+    /// Returns why it won't start. The recording carries on without it, and tells the user.
     pub fn microphone(choice: &DeviceChoice, recorder: Arc<Recorder>) -> Result<Self, String> {
         let device = choose(choice, true).ok_or_else(|| "No microphone was found.".to_string())?;
         // SAFETY: documented setup calls, in order, on objects made here. The dictionary holds the
@@ -282,10 +282,10 @@ impl DeviceCapture {
         }
     }
 
-    /// Starts recording the webcam, to its own file at 1280×720 and 30 fps (§27).
+    /// Starts recording the webcam, to its own file at 1280×720 and 30 fps.
     ///
     /// # Errors
-    /// Returns why it won't start. The recording carries on without it, and tells the user (§5).
+    /// Returns why it won't start. The recording carries on without it, and tells the user.
     pub fn camera(choice: &DeviceChoice, recorder: Arc<Recorder>) -> Result<Self, String> {
         let device = choose(choice, false).ok_or_else(|| "No camera was found.".to_string())?;
         // SAFETY: documented setup calls, in order, on objects made here. The dictionary holds the

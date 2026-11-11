@@ -1,4 +1,4 @@
-//! Listing and capturing the screen with ScreenCaptureKit (§27).
+//! Listing and capturing the screen with ScreenCaptureKit.
 
 use std::cell::OnceCell;
 use std::path::Path;
@@ -191,7 +191,7 @@ fn filter_for(
                     .find(|display| display.displayID() == *id)
                     .ok_or_else(|| "That display isn't connected any more.".to_string())?;
                 // Reel's own windows are left out here, rather than relying on them being marked as
-                // not to be captured (§47).
+                // not to be captured.
                 let excluded: Vec<Retained<SCRunningApplication>> = content
                     .applications()
                     .iter()

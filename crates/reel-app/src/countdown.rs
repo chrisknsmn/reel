@@ -31,7 +31,7 @@ fn config_for(window: WindowBuilder) -> Config {
         .with_custom_head(crate::head())
 }
 
-/// Shows the countdown (§6, §47). It closes itself, and a click or Esc cancels the recording.
+/// Shows the countdown. It closes itself, and a click or Esc cancels the recording.
 pub fn open_window(seconds: u32) {
     let window = floating_window("Countdown")
         .with_inner_size(LogicalSize::new(COUNTDOWN_SIZE, COUNTDOWN_SIZE));
@@ -77,7 +77,7 @@ fn Countdown(seconds: u32) -> Element {
     }
 }
 
-/// Flashes a border around a source when it's chosen (§3, §47). `area` is in points from the top left.
+/// Flashes a border around a source when it's chosen. `area` is in points from the top left.
 pub fn open_highlight(area: (f64, f64, f64, f64)) {
     let (x, y, width, height) = area;
     let window = floating_window("Highlight")

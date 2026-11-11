@@ -1,11 +1,11 @@
-//! What's on the timeline: clips, zooms, annotations, added audio and captions (§14, §15).
+//! What's on the timeline: clips, zooms, annotations, added audio and captions.
 
 use serde::{Deserialize, Serialize};
 
 use crate::project::{MediaRef, TrackSetting};
 use crate::time::{Micros, SourceTime, TimelineTime};
 
-/// The shortest any timeline item can be (§14).
+/// The shortest any timeline item can be.
 pub const MIN_ITEM: Micros = Micros(100_000);
 
 /// A stable identifier, unique within a project.
@@ -19,14 +19,14 @@ impl From<&str> for ItemId {
     }
 }
 
-/// The speeds a clip can have (§15). There's deliberately no custom value.
+/// The speeds a clip can have. There's deliberately no custom value.
 pub const CLIP_SPEEDS: [f64; 16] = [
     0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 30.0,
 ];
 
 /// Part of the recording to keep.
 ///
-/// Unlike Recordly's, a clip's place in the recording is independent of its place in the timeline.
+/// A clip's place in the recording is independent of its place in the timeline.
 /// That's what lets clips really be reordered: moving one doesn't change what footage it shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Clip {
@@ -34,8 +34,8 @@ pub struct Clip {
     /// Where it starts in the timeline.
     pub start: TimelineTime,
     /// How long it lasts on the timeline. This is stored, and the source end derived, so that
-    /// clips that touch on the timeline are exact at any speed. Recordly's misaligned splits at
-    /// speeds other than 1× come from the reverse (§58).
+    /// clips that touch on the timeline are exact at any speed, and a split lines up at speeds
+    /// other than 1× too.
     pub duration: Micros,
     /// Where in the recording it starts.
     pub source_start: SourceTime,
@@ -47,7 +47,7 @@ pub struct Clip {
     #[serde(default)]
     pub show_source_audio: bool,
     /// This clip's own volume per source track, where it differs from the project's. Export honours
-    /// these per clip, where Recordly applies one clip's settings to everything (§58).
+    /// these per clip.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub track_settings: Vec<TrackSetting>,
 }
@@ -89,7 +89,7 @@ impl Clip {
     }
 }
 
-/// The six zoom strengths (§10).
+/// The six zoom strengths.
 pub const ZOOM_SCALES: [f64; 6] = [1.25, 1.5, 1.8, 2.2, 3.5, 5.0];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -185,7 +185,7 @@ impl Default for TextStyle {
     }
 }
 
-/// What an annotation shows (§13).
+/// What an annotation shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AnnotationContent {
@@ -227,7 +227,7 @@ pub struct Annotation {
     pub layer: i32,
 }
 
-/// An added sound. It always plays from the start of its file (§16).
+/// An added sound. It always plays from the start of its file.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AudioItem {
     pub id: ItemId,
@@ -278,7 +278,7 @@ pub struct Timeline {
 }
 
 impl Timeline {
-    /// A new timeline with one clip covering the whole recording, as a new recording gets (§15).
+    /// A new timeline with one clip covering the whole recording, as a new recording gets.
     #[must_use]
     pub fn for_recording(source_duration: Micros) -> Self {
         Self {
@@ -297,7 +297,7 @@ impl Timeline {
         }
     }
 
-    /// The end of the last clip. Gaps are allowed, and playback skips them (§15).
+    /// The end of the last clip. Gaps are allowed, and playback skips them.
     #[must_use]
     pub fn duration(&self) -> Micros {
         let end = self.clips.iter().map(Clip::end).max().unwrap_or_default();

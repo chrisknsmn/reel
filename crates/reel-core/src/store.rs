@@ -1,4 +1,4 @@
-//! Saving files so a crash can't lose them (§45, BUILD_PLAN 2.6).
+//! Saving files so a crash can't lose them (BUILD_PLAN 2.6).
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};

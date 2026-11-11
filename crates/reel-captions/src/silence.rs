@@ -1,5 +1,5 @@
-//! Finding the quiet parts of a recording. Recordly asks FFmpeg to do this, with
-//! `silencedetect=noise=-30dB:d=0.5` (§36). These are the same settings.
+//! Finding the quiet parts of a recording, with the same settings as FFmpeg's
+//! `silencedetect=noise=-30dB:d=0.5`.
 
 use crate::segment::Silence;
 

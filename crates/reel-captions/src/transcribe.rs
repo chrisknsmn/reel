@@ -1,4 +1,4 @@
-//! Running Whisper locally. Nothing leaves the machine (§12).
+//! Running Whisper locally. Nothing leaves the machine.
 
 use std::path::Path;
 

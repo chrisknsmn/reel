@@ -4,7 +4,6 @@ pub mod edit;
 pub mod format;
 pub mod history;
 pub mod project;
-pub mod recordly;
 pub mod session;
 pub mod settings;
 pub mod store;

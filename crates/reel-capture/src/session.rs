@@ -1,5 +1,5 @@
 //! A note on disk of what a recording is writing. It's what makes recovery possible: if the note says
-//! a recording is still going but its process is gone, the files are what's left of a crash (§59).
+//! a recording is still going but its process is gone, the files are what's left of a crash.
 
 use std::path::{Path, PathBuf};
 
@@ -74,12 +74,12 @@ impl RecordingSession {
         serde_json::from_str(&text).map_err(std::io::Error::other)
     }
 
-    /// A project for this recording, with every track linked up. This is where the mic loss in §58
-    /// gets fixed: both tracks always reach the editor.
+    /// A project for this recording, with every track linked up, so both audio tracks always reach
+    /// the editor.
     #[must_use]
     pub fn to_project(&self, duration: Micros) -> Project {
         let mut project = Project {
-            id: reel_core::recordly::new_id(),
+            id: reel_core::project::new_id(),
             timeline: Timeline::for_recording(duration),
             ..Project::default()
         };

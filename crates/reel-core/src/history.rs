@@ -1,14 +1,14 @@
-//! The document being edited, with undo over all of it (§18, BUILD_PLAN 2.4).
+//! The document being edited, with undo over all of it (BUILD_PLAN 2.4).
 //!
-//! Recordly's undo leaves out the look settings and crop, and spends a step on every selection
-//! change and keystroke (§58). Here a step is a snapshot of the whole project, a gesture like a
-//! slider drag merges into one step, and selection lives outside history altogether.
+//! Undo covers the look settings and crop too. A step is a snapshot of the whole project, a gesture
+//! like a slider drag merges into one step, and selection lives outside history altogether, so
+//! selecting something or typing a key never costs a step.
 
 use crate::edit::{Edit, EditError, Outcome};
 use crate::project::Project;
 use crate::timeline::ItemId;
 
-/// How many steps back Undo goes (§18).
+/// How many steps back Undo goes.
 pub const UNDO_LEVELS: usize = 100;
 
 /// What's selected. This isn't part of the document, so changing it never touches history.
@@ -39,8 +39,8 @@ pub struct Editor {
 }
 
 impl Editor {
-    /// Starts editing with an empty history, so what the project opened with can't be undone. In
-    /// Recordly the automatic clip is an undo step, so Undo can empty the clip row (§58).
+    /// Starts editing with an empty history, so what the project opened with can't be undone. That
+    /// includes a new recording's automatic clip, so Undo can't empty the clip row.
     #[must_use]
     pub fn new(project: Project) -> Self {
         Self {
@@ -174,7 +174,6 @@ mod tests {
 
     #[test]
     fn opening_a_project_gives_nothing_to_undo() {
-        // In Recordly the automatic clip is recorded, so Undo can empty the clip row (§58).
         let mut editor = editor();
         assert!(!editor.can_undo());
         editor.undo();
@@ -208,7 +207,6 @@ mod tests {
 
     #[test]
     fn look_settings_and_crop_can_be_undone() {
-        // Recordly leaves these out of history (§18).
         let mut editor = editor();
         editor.change(None, |project| project.look.shadow = 0.1);
         editor.change(None, |project| project.look.crop.width = 0.5);

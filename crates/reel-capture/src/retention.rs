@@ -1,5 +1,5 @@
-//! Deleting old recordings. Recordly does this silently after 14 days or beyond the newest 20 (§29).
-//! Here it's off unless the user turns it on (D7), and it follows the same rules when they do.
+//! Deleting old recordings: any older than 14 days, or beyond the newest 20. It's off unless the user
+//! turns it on (D7).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

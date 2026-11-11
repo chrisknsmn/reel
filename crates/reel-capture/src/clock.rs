@@ -56,7 +56,7 @@ impl RecordingClock {
     }
 
     /// Where a video frame goes. The first frame that isn't in a pause becomes time zero, which is what
-    /// makes a warm start free of startup lag (§27).
+    /// makes a warm start free of startup lag.
     pub fn place_frame(&mut self, host: i64) -> Option<Micros> {
         if self.in_a_pause(host) {
             return None;

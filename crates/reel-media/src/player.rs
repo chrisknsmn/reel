@@ -1,4 +1,4 @@
-//! Playback's clock, driven by the sound card when there is one (§37, BUILD_PLAN 3.7).
+//! Playback's clock, driven by the sound card when there is one (BUILD_PLAN 3.7).
 //!
 //! The sound card can't be hurried or slowed, so video follows it. With no sound device, the same
 //! clock runs on wall time. Either way, gaps between clips are skipped.
@@ -253,7 +253,7 @@ impl Player {
         }
     }
 
-    /// Sets the preview's volume, from 0 to 1. This isn't saved or exported (§17).
+    /// Sets the preview's volume, from 0 to 1. This isn't saved or exported.
     pub fn set_volume(&self, volume: f64) {
         self.volume
             .store((volume.clamp(0.0, 1.0) * 1000.0) as i64, Ordering::Relaxed);
@@ -362,7 +362,7 @@ impl Resampler {
     }
 }
 
-/// Jumps over any gap the mixer has reached, so playback carries straight on (§37).
+/// Jumps over any gap the mixer has reached, so playback carries straight on.
 fn skip_gap(mixer: &mut Mixer) {
     let frame = crate::mix::timeline_frames(mixer.position() - TimelineTime::ZERO);
     if let Some(next) = mixer.next_playable(frame)

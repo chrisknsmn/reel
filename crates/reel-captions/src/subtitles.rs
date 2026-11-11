@@ -1,4 +1,4 @@
-//! `.srt` and `.vtt` files, timed for the exported video (§12, BUILD_PLAN 9.6).
+//! `.srt` and `.vtt` files, timed for the exported video (BUILD_PLAN 9.6).
 //!
 //! An export skips the gaps between clips, so a caption's time on the timeline isn't its time in the
 //! video. This is what maps through trims and speed changes correctly.

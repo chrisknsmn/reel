@@ -1,4 +1,4 @@
-//! Changing captions by hand (§12): splitting at a word, merging with the next, and placing a
+//! Changing captions by hand: splitting at a word, merging with the next, and placing a
 //! transcript's cues on the timeline.
 
 use reel_core::time::{SourceTime, TimelineTime};

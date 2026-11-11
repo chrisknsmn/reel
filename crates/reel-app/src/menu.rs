@@ -1,4 +1,4 @@
-//! The macOS menu (§49). Dioxus's default one gives Edit a native Undo and Select All, which would catch
+//! The macOS menu. Dioxus's default one gives Edit a native Undo and Select All, which would catch
 //! those keys before the page sees them, and adds developer tools (BUILD_PLAN 10.2). So this one sends
 //! them to the editor, and has no developer tools at all.
 

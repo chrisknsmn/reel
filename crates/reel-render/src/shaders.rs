@@ -87,8 +87,8 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
 /// Everything that's inside the camera: the frame's shadow, then the video in its rounded mask.
 ///
 /// It all happens in one full-screen pass: each pixel is taken back through the camera to find where
-/// it falls on the stage. Colours stay in their encoded form throughout, as in the browser Recordly
-/// composited in, so a look comes out the same.
+/// it falls on the stage. Colours stay in their encoded form throughout, as a browser
+/// composites them, so a look comes out as its CSS would.
 pub const FRAME: &str = r#"
 struct Params {
     camera: vec4f,      // scale, x, y (in stage pixels), unused
@@ -150,7 +150,7 @@ fn rounded_shadow(lower: vec2f, upper: vec2f, point_in: vec2f, sigma: f32, corne
     return value;
 }
 
-// How much of this pixel is inside the frame's squircle: a superellipse with exponent 4.5 (§31).
+// How much of this pixel is inside the frame's squircle: a superellipse with exponent 4.5.
 fn squircle_coverage(point: vec2f, center: vec2f, half_size: vec2f, radius: f32) -> f32 {
     let distance = abs(point - center) - (half_size - vec2f(radius));
     // Straight edges.
@@ -211,7 +211,7 @@ fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
     if (coverage > 0.0) {
         let samples = i32(p.blur_from.w);
         if (samples > 1) {
-            // Motion blur: the picture averaged along where the camera has just been (§32).
+            // Motion blur: the picture averaged along where the camera has just been.
             for (var i = 0; i < samples; i += 1) {
                 let t = f32(i) / f32(samples - 1);
                 let scale = mix(p.camera.x, p.blur_from.x, t);

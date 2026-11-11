@@ -1,4 +1,4 @@
-//! How captions are laid out and animated (§36). Measuring text is passed in, which keeps all of this
+//! How captions are laid out and animated. Measuring text is passed in, which keeps all of this
 //! testable without any fonts.
 
 use reel_core::project::{CaptionAnimation, CaptionStyle};
@@ -33,7 +33,7 @@ pub fn metrics(style: &CaptionStyle, stage_width: f64) -> CaptionMetrics {
 }
 
 /// Wraps words into lines that fit, balanced so no line is left short. This is dynamic programming
-/// over every possible set of breaks, with the costs from §36. A word too wide for any line gets one
+/// over every possible set of breaks. A word too wide for any line gets one
 /// to itself.
 pub fn wrap_words(
     words: &[String],
@@ -166,7 +166,7 @@ pub struct PageMotion {
     pub scale: f64,
 }
 
-/// `v = min(enter, exit)` over 180 ms, shaped by the animation style (§36).
+/// `v = min(enter, exit)` over 180 ms, shaped by the animation style.
 #[must_use]
 pub fn page_motion(page: &Page, time: TimelineTime, animation: CaptionAnimation) -> PageMotion {
     let window = ANIMATION.0 as f64;
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn a_short_last_line_is_fine_but_a_short_early_one_isnt() {
-        // The costs in §36 forgive the last line, so a full line and then a short one wins here.
+        // The costs forgive the last line, so a full line and then a short one wins here.
         let lines = wrap_words(&words("aaaa bbbb cccc dddd"), 140.0, &mut measure);
         assert_eq!(lines, ["aaaa bbbb cccc", "dddd"]);
     }

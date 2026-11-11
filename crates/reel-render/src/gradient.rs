@@ -1,4 +1,4 @@
-//! CSS gradients, as wallpapers use them (§8, §31).
+//! CSS gradients, as wallpapers use them.
 
 /// A colour in 0 to 1, not premultiplied.
 pub type Rgba = [f32; 4];
@@ -20,8 +20,7 @@ pub struct Gradient {
 }
 
 impl Gradient {
-    /// Reads CSS text. Recordly ignores the angle at export, drawing every gradient top to bottom
-    /// (§31). This honours it.
+    /// Reads CSS text, angle included, so export draws a gradient the way the preview does.
     #[must_use]
     pub fn parse(css: &str) -> Option<Self> {
         let css = css.trim();
@@ -236,7 +235,6 @@ mod tests {
 
     #[test]
     fn the_angle_is_honoured() {
-        // Recordly always exports these top to bottom (§31).
         let gradient = Gradient::parse("linear-gradient(90deg, #000000, #ffffff)").unwrap();
         assert_eq!(gradient.shape, Shape::Linear { angle: PI / 2.0 });
     }

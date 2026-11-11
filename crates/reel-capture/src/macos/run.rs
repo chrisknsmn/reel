@@ -77,7 +77,7 @@ pub fn record(
         _ => Source::Screen(ScreenCapture::start(config, size, recorder.clone())?),
     };
 
-    // A mic or webcam that won't start doesn't stop the recording, and the user is told (§4, §5). A
+    // A mic or webcam that won't start doesn't stop the recording, and the user is told. A
     // test pattern makes its own mic sound.
     let microphone = match (&config.microphone, is_real) {
         (Some(choice), true) => match DeviceCapture::microphone(choice, recorder.clone()) {

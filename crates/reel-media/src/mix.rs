@@ -1,4 +1,4 @@
-//! Turns a timeline into sound. Preview and export both use this, so they can't disagree (§37, §42).
+//! Turns a timeline into sound. Preview and export both use this, so they can't disagree.
 //!
 //! Sound is rendered on the timeline's clock: a clip at 2× has already been sped up by the time it
 //! comes out of here, so one output sample is always one sample of timeline time. That's what makes
@@ -13,7 +13,7 @@ use reel_core::timeline::Clip;
 pub const SAMPLE_RATE: u32 = 48_000;
 pub const CHANNELS: usize = 2;
 
-/// Recordly calls this "Normalize", but it's a fixed gain (BUILD_PLAN 7.6).
+/// The boost setting's gain, which is fixed (BUILD_PLAN 7.6).
 pub const BOOST: f32 = 1.35;
 
 /// Stereo sound at the working sample rate, ready for random access.
@@ -77,7 +77,7 @@ pub struct SourceAudio {
     pub boost: bool,
 }
 
-/// An added audio item, ready to play. It always plays from the start of its file (§16).
+/// An added audio item, ready to play. It always plays from the start of its file.
 #[derive(Clone, Debug)]
 pub struct AddedAudio {
     pub start: TimelineTime,
@@ -91,7 +91,7 @@ fn gain(volume: f32, boost: bool) -> f32 {
     volume * if boost { BOOST } else { 1.0 }
 }
 
-/// How loud a source track is in a clip. A clip's own setting wins (§58).
+/// How loud a source track is in a clip. A clip's own setting wins.
 fn clip_gain(clip: &Clip, source: &SourceAudio) -> f32 {
     if clip.muted {
         return 0.0;
@@ -240,7 +240,7 @@ impl Mixer {
         self.stretching_clip = None;
     }
 
-    /// The next position anything is playing, which skips the gaps between clips (§37).
+    /// The next position anything is playing, which skips the gaps between clips.
     #[must_use]
     pub fn next_playable(&self, frame: i64) -> Option<i64> {
         self.clips.iter().find_map(|clip| {
@@ -545,7 +545,6 @@ mod tests {
 
     #[test]
     fn muting_stays_correct_after_a_trim_moves_the_clip() {
-        // §58: Recordly compares clip time with output time, so muted parts drift after trims.
         let mut project = project(4);
         project
             .timeline
@@ -579,7 +578,6 @@ mod tests {
 
     #[test]
     fn each_clip_uses_its_own_track_volume() {
-        // §58: Recordly applies one clip's settings to the whole export.
         let mut project = project(2);
         project
             .timeline
@@ -605,7 +603,6 @@ mod tests {
 
     #[test]
     fn system_and_mic_tracks_are_both_heard() {
-        // §58: Recordly's editor can lose the separately recorded mic.
         let system = SourceAudio {
             kind: SourceTrackKind::System,
             pcm: tone(300.0, 1.0),

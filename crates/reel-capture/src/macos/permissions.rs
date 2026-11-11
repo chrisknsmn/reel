@@ -1,5 +1,5 @@
-//! Checking and asking for permissions (§48). Checking never shows a prompt. Recordly asks for the
-//! camera and mic on every launch: here, asking only happens when a feature needs it.
+//! Checking and asking for permissions. Checking never shows a prompt, and asking only happens when
+//! a feature needs it, never just because the app launched.
 
 use std::sync::mpsc;
 

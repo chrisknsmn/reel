@@ -1,4 +1,4 @@
-//! The timeline (§14). T4 found plain page elements are quick enough, even at thousands of items, so
+//! The timeline. T4 found plain page elements are quick enough, even at thousands of items, so
 //! that's what it's built from.
 
 use dioxus::prelude::*;
@@ -133,7 +133,7 @@ pub fn edit_for(target: &Target, grip: Grip, to: TimelineTime) -> Edit {
     }
 }
 
-/// Which annotation or audio rows have anything on them, in order (§14).
+/// Which annotation or audio rows have anything on them, in order.
 #[must_use]
 pub fn tracks_in_use(mut tracks: Vec<u32>) -> Vec<u32> {
     tracks.sort_unstable();
@@ -148,7 +148,7 @@ pub fn zoom_ghost_at(timeline: &Timeline, time: TimelineTime) -> Option<Timeline
     trial.apply(&add_zoom_edit(time)).ok().map(|_| time)
 }
 
-/// A new zoom's defaults (§10): 1.5×, automatic, centred.
+/// A new zoom's defaults: 1.5×, automatic, centred.
 #[must_use]
 pub fn add_zoom_edit(start: TimelineTime) -> Edit {
     Edit::AddZoom {
@@ -159,7 +159,7 @@ pub fn add_zoom_edit(start: TimelineTime) -> Edit {
     }
 }
 
-/// How long a new caption can be at a time: up to a second and a half, or until the next one (§14).
+/// How long a new caption can be at a time: up to a second and a half, or until the next one.
 #[must_use]
 pub fn caption_ghost_end(timeline: &Timeline, time: TimelineTime) -> Option<TimelineTime> {
     if timeline
@@ -426,7 +426,7 @@ pub fn TimelinePanel() -> Element {
                 class: "tl-rows",
                 id: "timeline-rows",
                 onmousedown: move |event| {
-                    // An empty area clears the selection and seeks (§14).
+                    // An empty area clears the selection and seeks.
                     ed.select(Selection::None);
                     scrub_to(event.client_coordinates().x - rect().0);
                 },

@@ -1,4 +1,4 @@
-//! A global shortcut to start and stop recording, from any app (§23, §59).
+//! A global shortcut to start and stop recording, from any app.
 
 use std::cell::RefCell;
 

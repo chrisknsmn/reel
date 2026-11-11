@@ -290,7 +290,7 @@ pub async fn run(ed: Ed) {
     }
     press_command(&window, "z", 6, false).await;
 
-    // Real reordering: the footage goes with the clip, which Recordly can't do (§15).
+    // Real reordering: the footage goes with the clip.
     ed.select(Selection::Clip(project().timeline.clips[0].id.clone()));
     sleep(150).await;
     let first_footage = project().timeline.clips[0].source_start;
@@ -320,7 +320,7 @@ pub async fn run(ed: Ed) {
     ed.select(Selection::Clip(project().timeline.clips[1].id.clone()));
     sleep(150).await;
 
-    // Delete from the keyboard, which Recordly can't do for clips (§15, §58).
+    // Delete clips from the keyboard.
     focus_editor().await;
     let count = project().timeline.clips.len();
     press(&window, "", 51).await;
@@ -532,7 +532,7 @@ pub async fn run(ed: Ed) {
     focus_editor().await;
     press_command(&window, "z", 6, false).await;
     check(
-        "and the crop can be undone, which Recordly's can't",
+        "and the crop can be undone",
         project().look.crop == before_crop,
         String::new(),
     );

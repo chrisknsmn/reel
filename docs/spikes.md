@@ -162,7 +162,7 @@ In real time at 4K60, on either decoder:
 
 ## T3: Launch bar window
 
-**T3 passes on macOS, apart from two things it couldn't check here: a real drag between monitors, and ScreenCaptureKit.** The approach is a good replacement for Recordly's full-screen window with mouse forwarding.
+**T3 passes on macOS, apart from two things it couldn't check here: a real drag between monitors, and ScreenCaptureKit.** The approach avoids needing a full-screen window with mouse forwarding.
 
 `spikes/t3-launch-bar` is a frameless, transparent, always-on-top window of 640x72 that grows to 640x400 when a popover opens. All its checks passed.
 
@@ -184,7 +184,7 @@ Steps 5.1 to 5.3 should use all of these:
 ### Things step 5 has to handle
 
 - **Near the top of the screen,** AppKit pushes the window down rather than let it grow past the top, which moved the bar by 83 px in the first run. The bar needs to open its popover downward there, or stay clear of the edge.
-- **A popover that is open makes the window's transparent areas clickable.** That matches Recordly, where an open popover makes the whole window clickable, and a click there should close the popover.
+- **A popover that is open makes the window's transparent areas clickable.** That's the behaviour wanted: while a popover is open, a click anywhere in the window should close it.
 
 ## T4: Timeline speed
 

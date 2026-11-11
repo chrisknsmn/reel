@@ -3,7 +3,7 @@
 /.dx/
 /dist/
 
-# Recordly baseline: sample media, exports and timings stay out of git (BUILD_PLAN 0.5)
+# Local sample media, exports and timings stay out of git
 /baseline/
 
 # OS and editor files

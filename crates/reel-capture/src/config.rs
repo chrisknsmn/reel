@@ -1,4 +1,4 @@
-//! What the app tells the recorder process, and what the recorder says back (§30).
+//! What the app tells the recorder process, and what the recorder says back.
 //!
 //! The app gives it a config as JSON, and then sends one command per line on stdin: `pause`, `resume`,
 //! or `stop`. Stdin closing also stops and finishes the recording, so if the app dies the recording
@@ -53,13 +53,13 @@ pub struct RecordConfig {
     /// Whether to listen for clicks. Only tests turn this off.
     #[serde(default = "yes")]
     pub clicks: bool,
-    /// Warm start: capture runs but nothing is kept until `resume` (§27).
+    /// Warm start: capture runs but nothing is kept until `resume`.
     #[serde(default)]
     pub start_paused: bool,
-    /// Apps to keep out of a display recording, by bundle id, such as Reel's own windows (§47).
+    /// Apps to keep out of a display recording, by bundle id, such as Reel's own windows.
     #[serde(default)]
     pub exclude_bundles: Vec<String>,
-    /// Whether Reel's own windows stay out of a display recording (§2).
+    /// Whether Reel's own windows stay out of a display recording.
     #[serde(default = "yes")]
     pub hide_own_windows: bool,
 }
@@ -121,7 +121,7 @@ pub enum Event {
     },
     Paused,
     Resumed,
-    /// Something's missing but the recording carries on, like a mic that wouldn't start (§4, §5).
+    /// Something's missing but the recording carries on, like a mic that wouldn't start.
     Warning {
         message: String,
     },

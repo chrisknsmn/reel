@@ -1,4 +1,4 @@
-//! The project browser, presets, and the shortcut editor (§19, §20, §23).
+//! The project browser, presets, and the shortcut editor.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ use super::state::{Overlay, use_ed};
 use crate::links::{self, ToEditor};
 use crate::recording::support_folder;
 
-/// The most projects the browser lists (§20).
+/// The most projects the browser lists.
 const NEWEST: usize = 24;
 
 fn settings_path() -> PathBuf {
@@ -96,7 +96,7 @@ pub fn ProjectBrowser(current: Option<PathBuf>) -> Element {
                 onclick: move |_| {
                     let picked = rfd::FileDialog::new()
                         .set_title("Open a video or project")
-                        .add_filter("Videos and projects", &["mp4", "mov", "m4v", "reel", "recordly", "openscreen"])
+                        .add_filter("Videos and projects", &["mp4", "mov", "m4v", "reel"])
                         .pick_file();
                     if let Some(path) = picked {
                         overlay.set(Overlay::None);
@@ -131,7 +131,7 @@ pub fn ProjectBrowser(current: Option<PathBuf>) -> Element {
     }
 }
 
-/// Whether a preset's name is free. Names are unique regardless of case (§19).
+/// Whether a preset's name is free. Names are unique regardless of case.
 #[must_use]
 pub fn name_is_free(presets: &[Preset], name: &str) -> bool {
     !presets

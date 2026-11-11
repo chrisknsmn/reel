@@ -58,7 +58,7 @@ const SHELL_CSS: &str = include_str!("../assets/shell.css");
 const LOGO_SVG: &str = include_str!("../../../assets/logo.svg");
 
 /// The pages only ever show what the app gives them. They can't load anything from the internet, which
-/// keeps a mistake in the page from reaching further than the app itself (§50, BUILD_PLAN 10.5). Dioxus
+/// keeps a mistake in the page from reaching further than the app itself (BUILD_PLAN 10.5). Dioxus
 /// needs the inline scripts, and talks to Rust over the local connections listed.
 const CONTENT_POLICY: &str = "default-src 'self' dioxus: ipc:; \
     script-src 'self' 'unsafe-inline' 'unsafe-eval' dioxus:; \
@@ -75,7 +75,7 @@ pub fn head() -> String {
     )
 }
 
-/// Whether the editor window is showing, which decides what closing the bar does (§2).
+/// Whether the editor window is showing, which decides what closing the bar does.
 #[cfg(target_os = "macos")]
 static EDITOR_SHOWING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -140,7 +140,7 @@ fn main() {
         .with_close_behaviour(dioxus::desktop::WindowCloseBehaviour::WindowHides)
         .with_background_color((0, 0, 0, 0))
         .with_on_window(|window, _dom| {
-            // The editor stays hidden until there's a project to show (§48). A window that starts out
+            // The editor stays hidden until there's a project to show. A window that starts out
             // hidden never loads its page, so this one starts see-through, and hides once it's loaded.
             native::ns_window(&window).setAlphaValue(0.0);
             preview::start(window);

@@ -1,8 +1,7 @@
 //! The `.reel` file: versioned JSON with explicit migrations (BUILD_PLAN 2.5).
 //!
-//! Recordly's `version` is only type-checked, and changes are handled by scattered fallbacks (§45).
-//! Here every older version goes through a numbered migration, and a newer one is refused rather
-//! than half-read and then overwritten.
+//! Every older version goes through a numbered migration, and a newer one is refused rather than
+//! half-read and then overwritten.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

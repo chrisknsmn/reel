@@ -199,7 +199,6 @@ fn a_zoom_goes_through_the_camera() {
 
 #[test]
 fn a_linear_gradient_keeps_its_angle() {
-    // Recordly exports every gradient top to bottom (§31).
     let look = Look {
         background: Background::Gradient("linear-gradient(90deg, #ff0000, #0000ff)".to_string()),
         padding: Padding::uniform(50.0),

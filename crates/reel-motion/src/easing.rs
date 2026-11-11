@@ -1,4 +1,4 @@
-//! The easing curve zooms use (§32).
+//! The easing curve zooms use.
 
 #[must_use]
 pub fn clamp01(value: f64) -> f64 {

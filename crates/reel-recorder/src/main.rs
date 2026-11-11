@@ -1,4 +1,4 @@
-//! Separate recording process, so a UI crash can't lose a recording (§30).
+//! Separate recording process, so a UI crash can't lose a recording.
 //!
 //! ```text
 //! reel-recorder permissions                 What's allowed, without prompting.

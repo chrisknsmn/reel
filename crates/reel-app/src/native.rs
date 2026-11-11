@@ -128,7 +128,7 @@ pub fn center(window: &Window) {
     ns_window(window).center();
 }
 
-/// Sizes the editor at 85% of the work area and centres it (§47).
+/// Sizes the editor at 85% of the work area and centres it.
 pub fn size_as_editor(window: &Window) {
     let window = ns_window(window);
     let Some(screen) = window.screen() else {

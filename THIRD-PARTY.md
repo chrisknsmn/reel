@@ -1,6 +1,6 @@
 # Third-party software
 
-Reel is licensed under the AGPL-3.0 (see LICENSE). It's a rewrite of [Recordly](https://github.com/webadderallorg/Recordly), which is AGPL-3.0 too, and parts of its behaviour closely follow Recordly's.
+Reel is licensed under the AGPL-3.0 (see LICENSE). It started as a rewrite of [Recordly](https://github.com/webadderallorg/Recordly), which is AGPL-3.0 too.
 
 ## Notices
 

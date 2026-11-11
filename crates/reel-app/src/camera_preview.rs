@@ -1,4 +1,4 @@
-//! The floating webcam preview (§5): a small draggable window showing the camera live. It uses a
+//! The floating webcam preview: a small draggable window showing the camera live. It uses a
 //! native preview layer, which needs no decoding or drawing of its own, and is kept out of recordings.
 
 use std::cell::RefCell;

@@ -1,4 +1,4 @@
-//! The cursor's whole path through a project, worked out once, like the camera's (§34).
+//! The cursor's whole path through a project, worked out once, like the camera's.
 
 use reel_core::project::{ClickEffect, CursorLook, Project};
 use reel_core::time::{Micros, SourceTime, TimelineTime};
@@ -38,7 +38,7 @@ pub struct Click {
     pub y: f64,
 }
 
-/// One ring of a click effect (§34), in pixels at the size given.
+/// One ring of a click effect, in pixels at the size given.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Ring {
     pub x: f64,
@@ -57,7 +57,7 @@ const SWAY_SPRING: SpringConfig = SpringConfig {
     rest_delta: 0.0005,
     rest_speed: 0.01,
 };
-/// A jump in the cursor's time bigger than this snaps rather than swings (§34).
+/// A jump in the cursor's time bigger than this snaps rather than swings.
 const JUMP: Micros = Micros(100_000);
 
 /// Everything the renderer needs about the cursor.
@@ -141,7 +141,7 @@ impl PointerPath {
                     y.step(target_y, step_ms, &config);
                 }
 
-                // Sway leans the cursor into its motion (§34).
+                // Sway leans the cursor into its motion.
                 let swing =
                     previous_position
                         .filter(|_| !jumped)
@@ -247,7 +247,7 @@ impl PointerPath {
         })
     }
 
-    /// The latest shape, ignoring click samples, which don't reliably report one (§34).
+    /// The latest shape, ignoring click samples, which don't reliably report one.
     fn shape_at(&self, source: SourceTime) -> CursorShape {
         let next = self
             .track
@@ -380,7 +380,7 @@ fn ease_out_quint(t: f64) -> f64 {
     1.0 - (1.0 - t).powi(5)
 }
 
-/// Rewrites a cursor track so it ends where it began, for videos that loop (§34).
+/// Rewrites a cursor track so it ends where it began, for videos that loop.
 #[must_use]
 pub fn looped(track: &CursorTrack) -> CursorTrack {
     let (Some(first), Some(last)) = (
@@ -610,8 +610,8 @@ mod tests {
 
     #[test]
     fn a_clicks_time_goes_through_the_clip() {
-        // §58: Recordly compares click times, on the recording's clock, with timeline times. Here the
-        // clip plays at 2×, so a click at 4 s in the recording lands at 2 s on the timeline.
+        // Clicks are timed on the recording's clock. Here the clip plays at 2×, so a click at 4 s in
+        // the recording lands at 2 s on the timeline.
         let track = CursorTrack {
             samples: vec![
                 moving(0.0, 0.5, 0.5),

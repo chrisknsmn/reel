@@ -1,4 +1,4 @@
-//! Following the cursor: where it is, what shape it is, and when it clicks (§28).
+//! Following the cursor: where it is, what shape it is, and when it clicks.
 //!
 //! Position is sampled every 33 ms on a timer that corrects for drift. Clicks come from a listen-only
 //! event tap, which can't change or swallow anything. Shape comes from comparing the system's current

@@ -1,4 +1,4 @@
-//! The export panel (§21). It renders first and asks where to save afterwards, so that cancelling the
+//! The export panel. It renders first and asks where to save afterwards, so that cancelling the
 //! save dialog doesn't throw the render away: Save Again works without rendering again.
 
 use std::path::{Path, PathBuf};
@@ -16,8 +16,8 @@ use super::controls::{ChoiceRow, ToggleRow};
 use super::state::{Overlay, use_ed};
 use crate::recording::support_folder;
 
-/// Every effect the project uses, and whether this export will include it. Recordly can drop some of
-/// these without saying so (§38). Here, nothing is left out without a word (BUILD_PLAN 8.7).
+/// Every effect the project uses, and whether this export will include it, so nothing is left out
+/// without a word (BUILD_PLAN 8.7).
 #[must_use]
 pub fn left_out(project: &Project, format: ExportFormat) -> Vec<String> {
     let mut notes = Vec::new();
@@ -178,7 +178,7 @@ pub fn ExportPanel() -> Element {
                         saved: None,
                     });
                 }
-                // A cancel isn't an error, so it goes back to the settings quietly (§58).
+                // A cancel isn't an error, so it goes back to the settings quietly.
                 Ok(Err(_)) if flag.load(Ordering::Relaxed) => stage.set(Stage::Settings),
                 Ok(Err(error)) => {
                     crate::logs::write("export", &error);
@@ -226,7 +226,7 @@ pub fn ExportPanel() -> Element {
             let written = std::fs::write(destination.with_extension("srt"), to_srt(timeline))
                 .and_then(|()| std::fs::write(destination.with_extension("vtt"), to_vtt(timeline)));
             if let Err(error) = written {
-                // Saying so is the fix: Recordly reports these writes as having worked (§58).
+                // Say so, rather than report the export as complete.
                 ed.notice.set(Some(format!(
                     "The caption files couldn't be written: {error}"
                 )));

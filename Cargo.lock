@@ -4678,7 +4678,6 @@ dependencies = [
  "png 0.18.1",
  "reel-core",
  "reel-render",
- "tempfile",
 ]
 
 [[package]]

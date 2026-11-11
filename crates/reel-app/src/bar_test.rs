@@ -151,7 +151,7 @@ pub async fn run() {
     native::bring_forward(&window);
     sleep(1000).await;
 
-    // The app opens as just the bar, with no other window around it (§48).
+    // The app opens as just the bar, with no other window around it.
     let others = windows_showing_besides(&window);
     check(
         "only the bar is on screen at launch",
@@ -283,7 +283,7 @@ pub async fn run() {
         text_of("bar-status").await,
     );
 
-    // Cancel asks first, which Recordly doesn't.
+    // Cancel asks first.
     click(&window, "bar-cancel").await;
     let asks = exists("cancel-keep").await;
     check("cancelling asks first", asks, String::new());
@@ -366,7 +366,7 @@ pub async fn run() {
         format!("{project:?}"),
     );
 
-    // Closing the editor, the way its close button does, brings the bar back (§48).
+    // Closing the editor, the way its close button does, brings the bar back.
     close_editor(&window);
     sleep(500).await;
     check(

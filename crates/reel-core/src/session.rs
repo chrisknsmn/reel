@@ -1,4 +1,4 @@
-//! A project open for editing, with saving, autosave and unsaved-change tracking (§20).
+//! A project open for editing, with saving, autosave and unsaved-change tracking.
 
 use std::fmt;
 use std::fs;
@@ -11,14 +11,14 @@ use crate::history::Editor;
 use crate::project::Project;
 use crate::store;
 
-/// How long after a change autosave waits (§20).
+/// How long after a change autosave waits.
 pub const AUTOSAVE_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug)]
 pub enum SessionError {
     Io(io::Error),
     Load(LoadError),
-    /// A different project already has this name, so saving would destroy it (§20).
+    /// A different project already has this name, so saving would destroy it.
     NameTaken(PathBuf),
     /// Nothing to save to yet: use Save As.
     NoPath,
@@ -76,8 +76,8 @@ impl Session {
         }
     }
 
-    /// Opens a project. This reads the file and nothing else: in Recordly, opening a project marks
-    /// it dirty and rewrites it a second later (§58).
+    /// Opens a project. This reads the file and nothing else, so the project opens clean and the
+    /// file isn't rewritten.
     ///
     /// # Errors
     /// Returns why the file can't be read.
@@ -124,7 +124,7 @@ impl Session {
     }
 
     /// Saves to the project's file, or for a new recording, creates one in this folder under a name
-    /// that isn't taken. Recordly never autosaves a new recording, so a crash loses all edits (§20).
+    /// that isn't taken. New recordings autosave too, so a crash can't lose their edits.
     ///
     /// # Errors
     /// Returns any error from writing the file.
@@ -168,7 +168,7 @@ impl Session {
         Ok(())
     }
 
-    /// Renames the project's file, removing the old file and its backup (§20).
+    /// Renames the project's file, removing the old file and its backup.
     ///
     /// # Errors
     /// Returns `NameTaken` if a different project has the name, or any error from the file system.
@@ -230,7 +230,6 @@ mod tests {
 
     #[test]
     fn opening_a_project_leaves_it_clean_and_the_file_untouched() {
-        // Recordly reads as dirty and rewrites the file a second after opening (§58).
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("a.reel");
         let mut session = Session::new(project("a"));
@@ -291,7 +290,6 @@ mod tests {
 
     #[test]
     fn a_new_recording_autosaves_too() {
-        // Recordly only autosaves projects that already have a file (§20).
         let dir = tempfile::tempdir().unwrap();
         let mut session = Session::new(project("a"));
         assert!(session.is_dirty());

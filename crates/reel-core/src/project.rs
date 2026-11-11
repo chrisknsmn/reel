@@ -1,5 +1,7 @@
-//! The project: the recording's look, its motion settings and its timeline (§8 to §12, §45).
+//! The project: the recording's look, its motion settings and its timeline.
 
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -7,8 +9,15 @@ use serde::{Deserialize, Serialize};
 use crate::time::Micros;
 use crate::timeline::Timeline;
 
-/// A file a project uses. Recordly keeps only absolute paths, so moving a project breaks it. This
-/// keeps both, and looks next to the project first.
+/// A random ID for a new project.
+#[must_use]
+pub fn new_id() -> String {
+    let part = || RandomState::new().build_hasher().finish();
+    format!("{:016x}{:016x}", part(), part())
+}
+
+/// A file a project uses. Both the absolute path and one relative to the project are kept, and the
+/// relative one is tried first, so a project still works after its folder is moved.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaRef {
     /// Relative to the project file's folder, using forward slashes on every OS.
@@ -67,7 +76,7 @@ fn relative_path(from_folder: &Path, to: &Path) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join("/"))
 }
 
-/// What's behind the recording (§8).
+/// What's behind the recording.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Background {
@@ -84,7 +93,6 @@ pub enum Background {
 
 impl Default for Background {
     fn default() -> Self {
-        // The plan's D8 keeps Recordly's wallpapers out until their origin is confirmed.
         Self::Color("#20303F".to_string())
     }
 }
@@ -185,7 +193,7 @@ pub enum Easing {
     Linear,
 }
 
-/// Springs are multiples of the base spring (§32, §34).
+/// Springs are multiples of the base spring.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpringFactors {
     pub stiffness: f64,
@@ -222,7 +230,7 @@ impl Default for ZoomMotion {
             motion_blur_samples: 13,
             motion_blur_shutter: 0.94,
             connect_zooms: true,
-            // The Focused motion preset (§19).
+            // The Focused motion preset.
             zoom_in_ms: 200.0,
             zoom_in_overlap_ms: 500.0,
             zoom_out_ms: 200.0,
@@ -278,7 +286,7 @@ impl Default for CursorLook {
             show: true,
             looped: false,
             style: "tahoe".to_string(),
-            // The Focused motion preset (§19).
+            // The Focused motion preset.
             size: 2.5,
             smoothing: 0.67,
             spring: SpringFactors {
@@ -424,7 +432,7 @@ pub enum ExportQuality {
 }
 
 impl ExportQuality {
-    /// How much of the full size this renders at (§21).
+    /// How much of the full size this renders at.
     #[must_use]
     pub fn scale(self) -> f64 {
         match self {
@@ -435,7 +443,7 @@ impl ExportQuality {
         }
     }
 
-    /// A size at this quality, floored to even as H.264 needs (§39).
+    /// A size at this quality, floored to even as H.264 needs.
     #[must_use]
     pub fn scaled_size(self, size: (u32, u32)) -> (u32, u32) {
         let even = |value: u32| ((f64::from(value) * self.scale()) as u32 & !1).max(2);
@@ -505,7 +513,7 @@ pub enum SourceTrackKind {
 pub struct TrackSetting {
     pub kind: SourceTrackKind,
     pub volume: f64,
-    /// A ×1.35 boost, which Recordly labels "Normalize" (BUILD_PLAN 7.6).
+    /// A fixed ×1.35 boost (BUILD_PLAN 7.6).
     #[serde(default)]
     pub boost: bool,
 }
@@ -552,7 +560,7 @@ pub struct Project {
 }
 
 impl Project {
-    /// Keeps every setting within the limits in §45, and every list sorted, so a hand-edited or
+    /// Keeps every setting within its limits, and every list sorted, so a hand-edited or
     /// damaged file can't reach the renderer with values it wasn't built for.
     pub fn normalize(&mut self) {
         let look = &mut self.look;

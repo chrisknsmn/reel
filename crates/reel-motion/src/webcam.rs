@@ -1,4 +1,4 @@
-//! Where the webcam bubble goes (§35).
+//! Where the webcam bubble goes.
 
 use reel_core::project::{Crop, Webcam, WebcamPosition};
 use reel_core::time::{SourceTime, TimelineTime};

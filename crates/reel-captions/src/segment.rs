@@ -1,4 +1,4 @@
-//! Turning a transcript's words into captions (§36).
+//! Turning a transcript's words into captions.
 
 /// A word with its timing, in milliseconds on the recording.
 #[derive(Clone, Debug, PartialEq)]
@@ -89,7 +89,7 @@ fn inside_long_silence(word: &Word, silences: &[Silence]) -> bool {
 }
 
 /// Whisper's timings smear across a pause: real words just after it get times inside it, packed up
-/// against what came before. Dropping them as §36 says would lose real speech after every pause, which
+/// against what came before. Dropping them would lose real speech after every pause, which
 /// a test with real audio showed. Those runs flow right up to the end of the silence and on into the next
 /// word, unlike words Whisper made up, which sit stranded in the middle. So runs like that are moved
 /// onto the speech they belong to, sharing its time by length.
@@ -221,7 +221,7 @@ fn pad(mut cues: Vec<Cue>) -> Vec<Cue> {
     cues
 }
 
-/// Whisper's tokens can be parts of words. A token without a leading space joins the one before (§36).
+/// Whisper's tokens can be parts of words. A token without a leading space joins the one before.
 #[must_use]
 pub fn words_from_tokens(tokens: &[(String, f64, f64)]) -> Vec<Word> {
     let mut words: Vec<Word> = Vec::new();

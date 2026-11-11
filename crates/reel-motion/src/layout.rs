@@ -1,4 +1,4 @@
-//! Where the recording sits on the stage (§31).
+//! Where the recording sits on the stage.
 
 use reel_core::project::{Crop, Padding};
 
@@ -99,7 +99,7 @@ pub fn corner_radius_px(radius: f64, stage: (f64, f64)) -> f64 {
     radius * (stage.0 / 1920.0).min(stage.1 / 1080.0)
 }
 
-/// One of the three layers of the frame's shadow, in pixels at 1920×1080 (§31).
+/// One of the three layers of the frame's shadow, in pixels at 1920×1080.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShadowLayer {
     pub offset_y: f64,
@@ -107,7 +107,7 @@ pub struct ShadowLayer {
     pub alpha: f64,
 }
 
-/// The shadow's layers, the same on every path, unlike Recordly's several routes.
+/// The shadow's layers, the same on every path.
 #[must_use]
 pub fn shadow_layers(intensity: f64) -> [ShadowLayer; 3] {
     let i = intensity.clamp(0.0, 1.0);
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn default_padding_takes_four_percent_per_side() {
-        // §31: padFrac = pct / 100 × 0.2, so the default of 20 gives 4% per side.
+        // PadFrac = pct / 100 × 0.2, so the default of 20 gives 4% per side.
         let layout = compute(
             (1920.0, 1080.0),
             &Padding::uniform(20.0),

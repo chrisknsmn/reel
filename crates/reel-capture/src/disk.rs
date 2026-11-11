@@ -1,4 +1,4 @@
-//! Checks that there's room to record (§59). Recordly doesn't check, and fills the disk.
+//! Checks that there's room to record, so a recording can't fill the disk.
 
 use std::path::Path;
 

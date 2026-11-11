@@ -1,5 +1,5 @@
-//! Telling which cursor is showing, by comparing its shape with the standard ones (§28). The thresholds
-//! are Recordly's. Above them a match is too weak to trust, and it's called an arrow.
+//! Telling which cursor is showing, by comparing its shape with the standard ones. A match above
+//! the thresholds is too weak to trust, and it's called an arrow.
 
 use reel_motion::cursor::CursorShape;
 

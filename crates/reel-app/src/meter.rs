@@ -1,4 +1,4 @@
-//! A live level from a microphone, for the Audio popover (§27). It runs in the recorder's process, so
+//! A live level from a microphone, for the Audio popover. It runs in the recorder's process, so
 //! it's the same code path and the same permission as recording.
 
 use std::io::{BufRead, BufReader};

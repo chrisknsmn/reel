@@ -1,8 +1,7 @@
 //! The camera's whole path through a project, worked out once, ahead of time.
 //!
 //! Preview and export both sample this same path, at a fixed step on the timeline's own clock.
-//! Recordly's preview runs its springs on wall-clock time while its export uses content time, so the
-//! same project can move differently in each (§37). Here they can't.
+//! Neither runs its springs on wall-clock time, so the same project can't move differently in each.
 
 use reel_core::project::Project;
 use reel_core::time::{Micros, TimelineTime};
@@ -32,7 +31,7 @@ impl Camera {
     };
 }
 
-/// The camera at a target zoom and strength (§32). `mask` is the recording's area on the stage, as
+/// The camera at a target zoom and strength. `mask` is the recording's area on the stage, as
 /// fractions of the stage.
 #[must_use]
 pub fn target_camera(mask: &Rect, zoom_scale: f64, strength: f64, focus: Point) -> Camera {
@@ -56,7 +55,7 @@ pub fn clamp_focus(focus: Point, scale: f64) -> Point {
     }
 }
 
-/// Follows the cursor in auto mode, recentring when it leaves a safe zone (§32).
+/// Follows the cursor in auto mode, recentring when it leaves a safe zone.
 #[derive(Default)]
 struct FollowState {
     active: bool,
@@ -421,8 +420,8 @@ mod tests {
 
     #[test]
     fn cursor_data_goes_through_the_clip_not_the_timeline() {
-        // §58: Recordly compares source times with timeline times. Move the footage, and the camera
-        // should still follow the cursor as it was at that point in the recording.
+        // Move the footage, and the camera should still follow the cursor as it was at that point in
+        // the recording.
         let track = CursorTrack {
             samples: vec![
                 CursorSample {

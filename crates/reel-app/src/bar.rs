@@ -1,4 +1,4 @@
-//! The launch bar (§2, §47): a small floating window to choose what to record and start recording.
+//! The launch bar: a small floating window to choose what to record and start recording.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -28,7 +28,7 @@ pub const OPEN_HEIGHT: f64 = 472.0;
 const COUNTDOWNS: [u32; 4] = [0, 3, 5, 10];
 const POP_WIDTH: f64 = 300.0;
 
-/// Which popover is open. Only one ever is (§2).
+/// Which popover is open. Only one ever is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pop {
     Source,
@@ -58,7 +58,7 @@ impl Pop {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mode {
     Idle,
-    /// The recorder is warming up, so that the countdown is the only wait there is (§27).
+    /// The recorder is warming up, so that the countdown is the only wait there is.
     Starting,
     Counting,
     Recording {
@@ -81,7 +81,7 @@ pub fn timer_text(elapsed: Duration) -> String {
     format!("{:02}:{:02}", total / 60, total % 60)
 }
 
-/// A level from 0 to 100 as the five-bar meter in §27. Blue, then yellow, then red.
+/// A level from 0 to 100 as a five-bar meter. Blue, then yellow, then red.
 #[must_use]
 pub fn meter_bars(level: f64) -> [Option<&'static str>; 5] {
     const STEPS: [(f64, &str); 5] = [
@@ -193,7 +193,7 @@ pub fn Bar() -> Element {
         let window = dioxus::desktop::window();
         native::accept_first_mouse();
         native::pin_webview(&window.window, BAR_WIDTH, OPEN_HEIGHT);
-        // Back where it was left, on any monitor that's still there (§2).
+        // Back where it was left, on any monitor that's still there.
         let saved = SettingsStore::open(&settings_path()).get().bar_position;
         let placed = saved.is_some_and(|(x, y)| native::place_at(&window.window, x, y));
         if !placed {
@@ -208,7 +208,7 @@ pub fn Bar() -> Element {
         ));
     });
 
-    // Loads what was chosen last time, and looks for anything a crash left behind (§4, §59).
+    // Loads what was chosen last time, and looks for anything a crash left behind.
     use_future(move || async move {
         let store = SettingsStore::open(&settings_path());
         let saved = store.get().clone();
@@ -238,7 +238,7 @@ pub fn Bar() -> Element {
         }
     });
 
-    // Remembers choices between sessions (§4).
+    // Remembers choices between sessions.
     use_effect(move || {
         let (system, mic, wait, hide) = (
             system_audio(),
@@ -260,7 +260,7 @@ pub fn Bar() -> Element {
         }
     });
 
-    // Reel's own windows stay out of recordings unless the user wants them in (§2).
+    // Reel's own windows stay out of recordings unless the user wants them in.
     use_effect(move || {
         native::set_capture_protected(&dioxus::desktop::window().window, hide_from_recording());
     });
@@ -393,7 +393,7 @@ pub fn Bar() -> Element {
         }
     });
 
-    // A global shortcut starts and stops recording from anywhere (§23, §59).
+    // A global shortcut starts and stops recording from anywhere.
     use_future(move || async move {
         let mut tick = tokio::time::interval(Duration::from_millis(100));
         loop {
@@ -462,7 +462,7 @@ pub fn Bar() -> Element {
             Some(which)
         };
         set_open(open, next);
-        // Lists are fetched when they're opened, so they're always current (§4).
+        // Lists are fetched when they're opened, so they're always current.
         match next {
             Some(Pop::Source) => {
                 spawn(async move {
@@ -713,7 +713,7 @@ pub fn Bar() -> Element {
     }
 }
 
-/// With no project open, closing the bar leaves nothing showing, so the app quits (§2).
+/// With no project open, closing the bar leaves nothing showing, so the app quits.
 fn close_bar() {
     if crate::editor_is_showing() {
         dioxus::desktop::window().set_visible(false);
@@ -756,7 +756,7 @@ fn start(
         }),
         cursor: true,
         clicks: !is_test,
-        // Warm start: capture is already running when the countdown ends (§27).
+        // Warm start: capture is already running when the countdown ends.
         start_paused: true,
         exclude_bundles: Vec::new(),
         hide_own_windows: hide(),
@@ -954,7 +954,7 @@ fn AudioList(
                         onclick: move |_| {
                             let chosen = id.clone();
                             microphone.set(Some(chosen));
-                            // Asking only now, when a feature needs it (§48).
+                            // Asking only now, when a feature needs it.
                             spawn(async move {
                                 if recording::permissions().await.microphone == "not_asked" {
                                     let _ = recording::request_permission("microphone").await;
@@ -1096,7 +1096,7 @@ fn MoreList(hide_from_recording: Signal<bool>, folder: Signal<Option<PathBuf>>) 
             onclick: move |_| {
                 let picked = rfd::FileDialog::new()
                     .set_title("Open a video or project")
-                    .add_filter("Videos and projects", &["mp4", "mov", "m4v", "reel", "recordly", "openscreen"])
+                    .add_filter("Videos and projects", &["mp4", "mov", "m4v", "reel"])
                     .pick_file();
                 if let Some(path) = picked {
                     links::tell_editor(ToEditor::Open(path));

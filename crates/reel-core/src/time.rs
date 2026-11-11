@@ -1,8 +1,8 @@
 //! Times in a project, at microsecond precision so frame positions stay exact.
 //!
 //! There are two clocks: where something is in the recording, and where it is in the edited
-//! timeline. Recordly stores click times in one and zoom times in the other, as plain numbers, and
-//! mixes them up after edits (§58). Here they are different types, so that's a compile error:
+//! timeline. Clicks are timed on one and zooms on the other, and mixing them up after edits would
+//! put things in the wrong place. They are different types, so that's a compile error:
 //!
 //! ```compile_fail
 //! use reel_core::time::{SourceTime, TimelineTime};

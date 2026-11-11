@@ -1,6 +1,6 @@
 # Reel
 
-Reel is a screen recorder and editor for macOS, written in Rust. It's a rewrite of [Recordly](https://github.com/webadderallorg/Recordly): record your screen with your cursor, mic, system audio and webcam, then polish it with zooms, a styled cursor, annotations and captions, and export an MP4 or GIF. Everything runs on your Mac, and nothing you record is uploaded.
+Reel is a screen recorder and editor for macOS, written in Rust. Record your screen with your cursor, mic, system audio and webcam, then polish it with zooms, a styled cursor, annotations and captions, and export an MP4 or GIF. Everything runs on your Mac, and nothing you record is uploaded.
 
 **Status: not released.** It runs on macOS, but recording real screens hasn't been tested yet, and Windows and Linux aren't started. See [Status](#status).
 
@@ -24,11 +24,11 @@ open target/package/Reel.app
 
 The script makes a DMG too. It's signed ad hoc unless you give it a certificate, and it explains how at the top.
 
-There's also a command-line tool, `reel-cli`, which converts Recordly projects and renders without a window:
+There's also a command-line tool, `reel-cli`, which renders projects without a window:
 
 ```sh
-cargo run --release -p reel-cli -- convert project.recordly project.reel
 cargo run --release -p reel-cli -- render project.reel out.mp4
+cargo run --release -p reel-cli -- frame project.reel --at-ms 1000 frame.png
 ```
 
 ## How it's put together
@@ -45,7 +45,7 @@ cargo run --release -p reel-cli -- render project.reel out.mp4
 | `reel-cli` | Headless rendering. |
 | `reel-app` | The app: Dioxus with [Rust/UI](https://rust-ui.com/) for controls, and wgpu showing through a hole in the page. |
 
-`BUILD_PLAN.md` is the plan and its progress. `docs/spikes.md` has what the early experiments found, and `Recordly-Feature-List.md` is the specification, which the code refers to by section as `§N`.
+`BUILD_PLAN.md` is the plan and its progress, and `docs/spikes.md` has what the early experiments found.
 
 ## Tests
 
@@ -69,7 +69,7 @@ Two slower tests only run when asked for: a ten-minute recording (`cargo test --
 
 - Editing: clips, reordering, zooms, annotations, audio, captions, undo, presets, autosave and shortcuts
 - The preview, which matches export
-- MP4 and GIF export, at about 1.8× the speed of Recordly on the same projects
+- MP4 and GIF export, at 3.4× to 10.6× real time on an M4 Max
 - Captions from real speech, run locally
 - Everything in recording after capture itself, using a generated test pattern: pausing, keeping tracks in sync over ten minutes, surviving `kill -9`, and recovery
 
@@ -89,4 +89,4 @@ Two slower tests only run when asked for: a ten-minute recording (`cargo test --
 
 ## Licence
 
-AGPL-3.0-only. See `LICENSE`, and `THIRD-PARTY.md` for everything it builds on. There are no Recordly wallpapers or cursors in here: the cursors are original art, and the gradients are Reel's own.
+AGPL-3.0-only. See `LICENSE`, and `THIRD-PARTY.md` for everything it builds on. The cursors are original art, and the gradients are Reel's own.

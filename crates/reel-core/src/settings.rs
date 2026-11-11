@@ -1,9 +1,7 @@
-//! App settings, all in one Rust-owned file (BUILD_PLAN 2.9).
+//! App settings, all in one Rust-owned file (BUILD_PLAN 2.8).
 //!
-//! Recordly spreads these across several files and `localStorage`, and choosing a recordings folder
-//! rewrites one file with only that value, wiping the audio settings next to it (§58). Here there's
-//! one store, and every change writes the whole thing from memory, so there's nothing to overwrite
-//! partially. Keys this version doesn't know are kept, so a newer version's settings survive too.
+//! There's one store, and every change writes the whole thing from memory, so one setting can never
+//! overwrite the others. Keys this version doesn't know are kept, so a newer version's settings survive too.
 
 use std::collections::BTreeMap;
 use std::io;
@@ -14,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::project::{CaptionStyle, CursorLook, ExportSettings, Look, Project, Webcam, ZoomMotion};
 use crate::store;
 
-/// How many recent projects to remember (§46).
+/// How many recent projects to remember.
 pub const RECENT_PROJECTS: usize = 16;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,7 +32,7 @@ pub enum MotionPreset {
     Smooth,
 }
 
-/// A saved look, without any timeline items (§19).
+/// A saved look, without any timeline items.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Preset {
     pub name: String,
@@ -76,7 +74,7 @@ impl Preset {
         project.caption_style = self.caption_style.clone();
     }
 
-    /// Whether a project's look matches this, which is how the active preset is found (§19).
+    /// Whether a project's look matches this, which is how the active preset is found.
     #[must_use]
     pub fn matches(&self, project: &Project) -> bool {
         let mut applied = project.clone();
@@ -111,7 +109,7 @@ pub struct Settings {
     pub microphone_enabled: bool,
     pub system_audio_enabled: bool,
     pub microphone_device: Option<String>,
-    /// Recordly silently deletes old recordings. Here that's opt-in (D7).
+    /// Whether old recordings are deleted. It's opt-in, so nothing goes without the user asking (D7).
     pub retention_enabled: bool,
 
     pub auto_suggest_zooms: bool,
@@ -162,7 +160,7 @@ impl Settings {
         self.recent_projects.truncate(RECENT_PROJECTS);
     }
 
-    /// Saves a preset under a name. Names are unique, ignoring case (§19).
+    /// Saves a preset under a name. Names are unique, ignoring case.
     pub fn save_preset(&mut self, preset: Preset) {
         match self
             .presets
@@ -230,7 +228,6 @@ mod tests {
 
     #[test]
     fn choosing_a_recordings_folder_keeps_the_audio_settings() {
-        // In Recordly, this rewrites the file with only the folder (§58).
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
         let mut store = SettingsStore::open(&path);

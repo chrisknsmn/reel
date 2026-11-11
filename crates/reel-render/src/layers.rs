@@ -73,8 +73,8 @@ impl SceneLayers {
 
     /// Where the camera was a moment ago, if it has moved enough to blur.
     ///
-    /// Recordly's blur is `delta × amount × 4` of a 60 fps frame's motion (§32). As a time, that's the
-    /// same at any frame rate, and the same in preview and export.
+    /// The blur is `delta × amount × 4` of a 60 fps frame's motion. As a time, that's the same at
+    /// any frame rate, and the same in preview and export.
     fn camera_blur(&self, time: TimelineTime, camera: Camera) -> Option<(Camera, u32)> {
         let amount = self.motion.motion_blur;
         if amount <= 0.0 {
@@ -90,7 +90,7 @@ impl SceneLayers {
         (moved > 0.0005).then_some((from, self.motion.motion_blur_samples.clamp(2, 32)))
     }
 
-    /// The cursor now, and where it's just been, for motion blur (§34).
+    /// The cursor now, and where it's just been, for motion blur.
     fn pointer_trail(&self, time: TimelineTime) -> Vec<PointerFrame> {
         let Some(now) = self.pointer.sample(time) else {
             return Vec::new();

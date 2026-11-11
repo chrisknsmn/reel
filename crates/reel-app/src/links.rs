@@ -14,7 +14,7 @@ pub enum ToEditor {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ToBar {
-    /// The editor has closed, so the bar comes back (§48).
+    /// The editor has closed, so the bar comes back.
     EditorClosed,
     /// The editor is on screen with something open, so the bar gets out of the way.
     EditorOpened,

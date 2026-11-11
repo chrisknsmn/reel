@@ -2,11 +2,11 @@
 
 use reel_core::time::{Micros, TimelineTime};
 
-/// The shortest stretch the view can zoom in to (§14).
+/// The shortest stretch the view can zoom in to.
 pub const SMALLEST_VIEW: Micros = Micros(300_000);
-/// How close a dragged playhead has to be to a keyframe to land on it (§14).
+/// How close a dragged playhead has to be to a keyframe to land on it.
 pub const KEYFRAME_SNAP: Micros = Micros(150_000);
-/// How far the skip buttons go when there's no keyframe to go to (§17).
+/// How far the skip buttons go when there's no keyframe to go to.
 pub const SKIP: Micros = Micros(5_000_000);
 const LABELS_WANTED: f64 = 12.0;
 
@@ -54,7 +54,7 @@ impl View {
         }
     }
 
-    /// Zooms toward a place, which stays where it is on screen (§14).
+    /// Zooms toward a place, which stays where it is on screen.
     #[must_use]
     pub fn zoomed(self, factor: f64, x: f64, width: f64, total: Micros) -> Self {
         let anchor = self.time_at(x, width);
@@ -181,7 +181,7 @@ pub fn snap_to_keyframes(time: TimelineTime, keyframes: &[TimelineTime]) -> Time
         .unwrap_or(time)
 }
 
-/// Where a skip button goes: the next keyframe that way, or else five seconds along (§17).
+/// Where a skip button goes: the next keyframe that way, or else five seconds along.
 #[must_use]
 pub fn skip_target(
     position: TimelineTime,
@@ -212,7 +212,7 @@ pub fn skip_target(
     TimelineTime(target.0.clamp(0, total.0.max(0)))
 }
 
-/// `m:ss.mmm`, which is how a caption's times are shown and typed (§12).
+/// `m:ss.mmm`, which is how a caption's times are shown and typed.
 #[must_use]
 pub fn exact_time(time: TimelineTime) -> String {
     let millis = (time.0 / 1000).max(0);

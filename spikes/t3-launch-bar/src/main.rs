@@ -1,6 +1,6 @@
 //! T3 from BUILD_PLAN.md: a small, transparent, always-on-top launch bar that grows upward when a
 //! popover opens. The window only ever covers what's visible, so clicks anywhere else reach other
-//! apps without any of the mouse forwarding Recordly's full-screen window needs.
+//! apps without any of the mouse forwarding a full-screen window would need.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};

@@ -1,8 +1,6 @@
 //! Reel's own cursor artwork, drawn from shapes here.
 //!
-//! Recordly's cursors may be Apple's artwork, with their origin unconfirmed, so none of them are used
-//! (D8). Each shape is drawn in a 100×100 square, placed so its hotspot lands where §34 says, which
-//! means cursor positions from Recordly projects still point at the same thing.
+//! Each shape is drawn in a 100×100 square, placed so its hotspot lands on the cursor's position.
 
 use reel_motion::cursor::CursorShape;
 use tiny_skia::{
@@ -310,7 +308,7 @@ pub fn sprite_hotspot(style: &str, shape: CursorShape) -> (f64, f64) {
     }
 }
 
-/// Whether a style draws a shadow. Minimal doesn't (§34).
+/// Whether a style draws a shadow. Minimal doesn't.
 #[must_use]
 pub fn has_shadow(style: &str) -> bool {
     !matches!(style, "minimal" | "figma")

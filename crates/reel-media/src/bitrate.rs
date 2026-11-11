@@ -1,4 +1,4 @@
-//! How many bits an export gets (§39).
+//! How many bits an export gets.
 
 use reel_core::project::{EncodingMode, ExportQuality};
 
@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn the_documented_example_comes_out_right() {
-        // §39: 1080p30 Original Balanced is 9.6 Mbps, and 60 fps multiplies that by 1.414.
+        // 1080p30 Original Balanced is 9.6 Mbps, and 60 fps multiplies that by 1.414.
         let at_30 = video_bitrate(
             1920,
             1080,

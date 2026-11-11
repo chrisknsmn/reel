@@ -1,4 +1,4 @@
-//! A damped spring with a closed-form solution for each damping regime (§32).
+//! A damped spring with a closed-form solution for each damping regime.
 
 use reel_core::project::SpringFactors;
 
@@ -53,7 +53,7 @@ pub fn zoom_config(smoothness: f64, factors: SpringFactors) -> SpringConfig {
 
 const CURSOR_STIFFNESS_BOOST: f64 = 1.12;
 
-/// The spring for the cursor, from the smoothing factor (§34).
+/// The spring for the cursor, from the smoothing factor.
 #[must_use]
 pub fn cursor_config(smoothing: f64, factors: SpringFactors) -> SpringConfig {
     let clamped = smoothing.clamp(0.0, 2.0);
@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn the_default_camera_spring_matches_the_documented_values() {
-        // §32: k 100, c 23.73, m 1.12, damping ratio about 1.12.
+        // K 100, c 23.73, m 1.12, damping ratio about 1.12.
         let config = zoom_config(0.5, DEFAULT_CAMERA);
         assert!((config.stiffness - 100.0).abs() < 1e-9);
         assert!((config.damping - 23.73).abs() < 1e-9);
