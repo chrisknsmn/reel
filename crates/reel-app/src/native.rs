@@ -76,6 +76,7 @@ pub fn set_height(window: &Window, height: f64) {
 }
 
 /// The window's height, in points.
+#[cfg(feature = "self-test")]
 pub fn height(window: &Window) -> f64 {
     ns_window(window).frame().size.height
 }

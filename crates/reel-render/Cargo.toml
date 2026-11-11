@@ -9,9 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-color_quant = "1"
 cosmic-text.workspace = true
-gif = "0.14"
 image.workspace = true
 pollster.workspace = true
 reel-core.workspace = true
@@ -21,6 +19,9 @@ tiny-skia.workspace = true
 wgpu.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# Only GIF export uses these, and export is macOS-only for now.
+color_quant = "1"
+gif = "0.14"
 objc2-core-foundation = "0.3"
 objc2-core-video = "0.3"
 objc2-foundation = "0.3"

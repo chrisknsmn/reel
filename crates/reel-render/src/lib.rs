@@ -5,7 +5,6 @@
 //! then webcam and captions outside it, and it's the same in preview and export.
 
 pub mod cursors;
-mod gif_frame;
 pub mod gradient;
 pub mod layers;
 mod overlay;
@@ -16,6 +15,8 @@ pub mod text;
 pub mod apple;
 #[cfg(target_os = "macos")]
 pub mod export;
+#[cfg(target_os = "macos")]
+mod gif_frame;
 
 use reel_core::project::{Background, Look, MediaRef};
 use reel_motion::camera::Camera;

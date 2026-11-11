@@ -18,7 +18,7 @@ use objc2::runtime::AnyObject;
 use objc2::{class, msg_send};
 use objc2_foundation::{NSArray, NSString};
 use reel_core::project::Project;
-use reel_core::time::{Micros, SourceTime, TimelineTime};
+use reel_core::time::{SourceTime, TimelineTime};
 use reel_media::macos::{Decoder, Frame, read_pcm};
 use reel_media::mix::{AddedAudio, Mixer, Pcm, source_audio};
 use reel_media::player::{Clock, Player, PlayerHandle};
@@ -900,10 +900,13 @@ impl Stats {
 }
 
 /// How long a project runs.
-pub fn duration() -> Micros {
+#[cfg(feature = "self-test")]
+pub fn duration() -> reel_core::time::Micros {
     SHARED
         .scene()
-        .map_or(Micros::ZERO, |scene| scene.project.timeline.duration())
+        .map_or(reel_core::time::Micros::ZERO, |scene| {
+            scene.project.timeline.duration()
+        })
 }
 
 #[cfg(test)]
